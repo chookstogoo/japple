@@ -271,28 +271,66 @@ class LibraryApp:
         return panel
 
     def render_dashboard(self, parent: tk.Frame):
-        """Clears and rebuilds the dashboard dynamically"""
+        """Clears and rebuilds the dashboard dynamically with full scrolling"""
         for widget in parent.winfo_children():
             widget.destroy()
 
-        content_canvas = tk.Canvas(parent, bg=self.colors['main_bg'], highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=content_canvas.yview)
+        canvas_container = tk.Frame(parent, bg=self.colors['main_bg'])
+        canvas_container.pack(fill="both", expand=True)
+
+        content_canvas = tk.Canvas(canvas_container, bg=self.colors['main_bg'], highlightthickness=0)
+        v_scrollbar = ttk.Scrollbar(canvas_container, orient="vertical", command=content_canvas.yview)
+        h_scrollbar = ttk.Scrollbar(canvas_container, orient="horizontal", command=content_canvas.xview)
+
         scrollable_frame = tk.Frame(content_canvas, bg=self.colors['main_bg'])
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: content_canvas.configure(scrollregion=content_canvas.bbox("all"))
-        )
-        content_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        content_canvas.configure(yscrollcommand=scrollbar.set)
+        canvas_window = content_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
+        def configure_scrollregion(event):
+            content_canvas.configure(scrollregion=content_canvas.bbox("all"))
+
+        def configure_canvas_width(event):
+            # If the window is wider than the content, stretch it to fit the full screen
+            if event.width > scrollable_frame.winfo_reqwidth():
+                content_canvas.itemconfig(canvas_window, width=event.width)
+            else:
+                content_canvas.itemconfig(canvas_window, width='')
+
+        scrollable_frame.bind("<Configure>", configure_scrollregion)
+        content_canvas.bind("<Configure>", configure_canvas_width)
+
+        content_canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+        # Pack scrollbars and canvas
+        v_scrollbar.pack(side="right", fill="y")
+        h_scrollbar.pack(side="bottom", fill="x")
         content_canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
 
+        # --- Mouse Scrollwheel Bindings ---
+        def _on_mousewheel(event):
+            # Handles Windows, macOS, and Linux scroll events
+            if event.num == 4 or event.delta > 0:
+                content_canvas.yview_scroll(-1, "units")
+            elif event.num == 5 or event.delta < 0:
+                content_canvas.yview_scroll(1, "units")
+
+        def _bind_mouse(event):
+            content_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            content_canvas.bind_all("<Button-4>", _on_mousewheel)
+            content_canvas.bind_all("<Button-5>", _on_mousewheel)
+
+        def _unbind_mouse(event):
+            content_canvas.unbind_all("<MouseWheel>")
+            content_canvas.unbind_all("<Button-4>")
+            content_canvas.unbind_all("<Button-5>")
+
+        canvas_container.bind("<Enter>", _bind_mouse)
+        canvas_container.bind("<Leave>", _unbind_mouse)
+
+        # Add the dashboard components
         self.create_metric_cards(scrollable_frame)
         self.create_middle_section(scrollable_frame)
         self.create_bottom_section(scrollable_frame)
-
     def create_metric_cards(self, parent: tk.Frame):
         """Create the colorful metric cards reading from real Library data"""
         cards_frame = tk.Frame(parent, bg=self.colors['main_bg'])
@@ -301,34 +339,25 @@ class LibraryApp:
         total_books = len(self.library.items)
         borrowed_books = sum(1 for b in self.library.items.values() if b.is_borrowed)
         available_books = total_books - borrowed_books
-        total_members = len(self.library.members)
-        active_members = total_members
         overdue_books = len([t for t in self.transactions if t['status'] == 'Overdue'])
 
         cards_data = [
             (f"{total_books:,}", "Total Books", self.colors['card_blue'], "📚"),
             (f"{available_books:,}", "Available Books", self.colors['card_green'], "✅"),
             (f"{borrowed_books:,}", "Books Borrowed", self.colors['card_orange'], "📖"),
-            (f"{total_members:,}", "Total Members", self.colors['card_purple'], "👥"),
-            (f"{active_members:,}", "Active Members", self.colors['card_indigo'], "🟢"),
             (f"{overdue_books:,}", "Overdue Books", self.colors['card_red'], "⚠️")
         ]
 
-        for row in range(2):
-            row_frame = tk.Frame(cards_frame, bg=self.colors['main_bg'])
-            row_frame.pack(fill='x', pady=5)
-            for col in range(3):
-                idx = row * 3 + col
-                if idx < len(cards_data):
-                    value, label, color, icon = cards_data[idx]
-                    card = tk.Frame(row_frame, bg=color, width=280, height=122)
-                    card.grid(row=0, column=col, padx=10, pady=5, sticky='ew')
-                    card.pack_propagate(False)
-                    tk.Label(card, text=icon, font=('Arial', 20), fg='white', bg=color).pack(pady=(15, 5))
-                    tk.Label(card, text=value, font=('Arial', 24, 'bold'), fg='white', bg=color).pack()
-                    tk.Label(card, text=label, font=('Arial', 10), fg='white', bg=color).pack(pady=(0, 10))
-            for i in range(3):
-                row_frame.grid_columnconfigure(i, weight=1)
+        row_frame = tk.Frame(cards_frame, bg=self.colors['main_bg'])
+        row_frame.pack(fill='x', pady=5)
+        for col, (value, label, color, icon) in enumerate(cards_data):
+            card = tk.Frame(row_frame, bg=color, width=280, height=122)
+            card.grid(row=0, column=col, padx=10, pady=5, sticky='ew')
+            card.pack_propagate(False)
+            tk.Label(card, text=icon, font=('Arial', 20), fg='white', bg=color).pack(pady=(15, 5))
+            tk.Label(card, text=value, font=('Arial', 24, 'bold'), fg='white', bg=color).pack()
+            tk.Label(card, text=label, font=('Arial', 10), fg='white', bg=color).pack(pady=(0, 10))
+            row_frame.grid_columnconfigure(col, weight=1)
 
     def create_middle_section(self, parent: tk.Frame):
         middle_frame = tk.Frame(parent, bg=self.colors['main_bg'])
@@ -440,6 +469,7 @@ class LibraryApp:
         bottom_frame = tk.Frame(parent, bg=self.colors['main_bg'])
         bottom_frame.pack(fill='x', padx=20, pady=20)
 
+        # Left side - Top Members
         members_frame = tk.Frame(bottom_frame, bg=self.colors['white'], width=400)
         members_frame.pack(side='left', fill='y', padx=(0, 10))
         members_frame.pack_propagate(False)
@@ -479,6 +509,7 @@ class LibraryApp:
                 tk.Label(info_frame, text=f"{member_id} • {activity}", font=('Arial', 9), fg=self.colors['text_light'],
                          bg=self.colors['white']).pack(anchor='w')
 
+        # Right side - Library Stats
         stats_frame = tk.Frame(bottom_frame, bg=self.colors['white'])
         stats_frame.pack(side='left', fill='both', expand=True, padx=10)
 
@@ -582,8 +613,24 @@ class LibraryApp:
 
     def _build_view_books_screen(self) -> tk.Frame:
         panel = self._make_panel("View Books")
+
+        tree_container = tk.Frame(panel, bg="white")
+        tree_container.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+
+        v_scroll = ttk.Scrollbar(tree_container, orient="vertical")
+        h_scroll = ttk.Scrollbar(tree_container, orient="horizontal")
+
         columns = ("id", "type", "title", "year", "author", "pages", "status")
-        self.books_tree = ttk.Treeview(panel, columns=columns, show="headings", height=18)
+        self.books_tree = ttk.Treeview(tree_container, columns=columns, show="headings",
+                                       yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+
+        v_scroll.config(command=self.books_tree.yview)
+        h_scroll.config(command=self.books_tree.xview)
+
+        v_scroll.pack(side="right", fill="y")
+        h_scroll.pack(side="bottom", fill="x")
+        self.books_tree.pack(side="left", fill="both", expand=True)
+
         headings = {
             "id": "Book ID", "type": "Type", "title": "Title", "year": "Year",
             "author": "Author", "pages": "Pages", "status": "Status",
@@ -591,8 +638,8 @@ class LibraryApp:
         widths = {"id": 90, "type": 110, "title": 230, "year": 70, "author": 170, "pages": 70, "status": 90}
         for key in columns:
             self.books_tree.heading(key, text=headings[key])
-            self.books_tree.column(key, width=widths[key], anchor="w")
-        self.books_tree.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+            self.books_tree.column(key, width=widths[key], minwidth=widths[key], anchor="w")
+
         return panel
 
     def _build_delete_book_screen(self) -> tk.Frame:
