@@ -114,6 +114,7 @@ class LibraryApp:
                               bg=self.colors['sidebar'])
         logo_label.pack(padx=20)
 
+        # Cleaned up navigation list with Settings reinstated
         nav_items = [
             ("📊 Dashboard", True),
             ("📖 Books", False),
@@ -167,8 +168,12 @@ class LibraryApp:
             self._show_screen("member")
         elif "Transactions" in item:
             self._show_screen("issue")
+        elif "Reports" in item:
+            self._show_screen("report")
+        elif "Settings" in item:
+            self._show_screen("settings")
         elif "Search" in item:
-            self._show_screen("delete")
+            self._show_screen("delete")  # You can remap Search functionality later if needed
         else:
             messagebox.showinfo("Navigation", f"Module '{item}' is under construction.")
 
@@ -177,6 +182,8 @@ class LibraryApp:
             self._show_screen("add")
         elif "Add Member" in action:
             self._show_screen("member")
+        elif "Generate Report" in action:
+            self._show_screen("report")
         else:
             messagebox.showinfo("Quick Action", f"Action '{action}' triggered.")
 
@@ -207,14 +214,6 @@ class LibraryApp:
         tk.Button(search_frame, text="🔍", font=('Arial', 12), bg='#f3f4f6', bd=0, cursor='hand2').pack(side='right',
                                                                                                        padx=5)
 
-        notif_frame = tk.Frame(right_frame, bg=self.colors['white'])
-        notif_frame.pack(side='left', padx=15)
-
-        tk.Button(notif_frame, text="🔔", font=('Arial', 16), bg=self.colors['white'], bd=0, cursor='hand2').pack(
-            side='left', padx=5)
-        tk.Button(notif_frame, text="💬", font=('Arial', 16), bg=self.colors['white'], bd=0, cursor='hand2').pack(
-            side='left', padx=5)
-
         user_frame = tk.Frame(right_frame, bg=self.colors['white'])
         user_frame.pack(side='left', padx=10)
 
@@ -238,6 +237,8 @@ class LibraryApp:
             "issue": self._build_issue_book_screen(),
             "return": self._build_return_book_screen(),
             "member": self._build_member_screen(),
+            "report": self._build_report_screen(),
+            "settings": self._build_settings_screen(),
         }
         for screen in self.screens.values():
             screen.pack_forget()
@@ -475,6 +476,46 @@ class LibraryApp:
         tk.Label(other_stats, text="Average Books per Member: 0", font=('Arial', 9), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w', pady=(2, 0))
 
+    def _build_settings_screen(self) -> tk.Frame:
+        """Creates the settings panel to act as a hub for database management"""
+        panel = self._make_panel("⚙️ Settings & Database Management")
+
+        wrap = tk.Frame(panel, bg="white")
+        wrap.pack(anchor="w", padx=16, pady=12)
+
+        tk.Label(wrap, text="Library Catalog Controls", bg="white", font=("Segoe UI", 12, "bold")).pack(anchor="w",
+                                                                                                        pady=(0, 15))
+
+        tk.Button(
+            wrap,
+            text="➕ Add New Book",
+            command=lambda: self._show_screen("add"),
+            bg=self.colors['card_green'],
+            fg="white",
+            relief="flat",
+            padx=20,
+            pady=10,
+            font=("Segoe UI", 10, "bold"),
+            width=25,
+            cursor="hand2"
+        ).pack(anchor="w", pady=8)
+
+        tk.Button(
+            wrap,
+            text="🗑️ Delete Book",
+            command=lambda: self._show_screen("delete"),
+            bg=self.colors['card_red'],
+            fg="white",
+            relief="flat",
+            padx=20,
+            pady=10,
+            font=("Segoe UI", 10, "bold"),
+            width=25,
+            cursor="hand2"
+        ).pack(anchor="w", pady=8)
+
+        return panel
+
     def _build_add_book_screen(self) -> tk.Frame:
         panel = self._make_panel("Add Book")
         form = tk.Frame(panel, bg="white")
@@ -648,6 +689,37 @@ class LibraryApp:
 
         return panel
 
+    def _build_report_screen(self) -> tk.Frame:
+        panel = self._make_panel("Transaction Reports")
+
+        tree_container = tk.Frame(panel, bg="white")
+        tree_container.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+
+        v_scroll = ttk.Scrollbar(tree_container, orient="vertical")
+        h_scroll = ttk.Scrollbar(tree_container, orient="horizontal")
+
+        columns = ("member", "book", "type", "date", "status")
+        self.reports_tree = ttk.Treeview(tree_container, columns=columns, show="headings",
+                                         yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+
+        v_scroll.config(command=self.reports_tree.yview)
+        h_scroll.config(command=self.reports_tree.xview)
+
+        v_scroll.pack(side="right", fill="y")
+        h_scroll.pack(side="bottom", fill="x")
+        self.reports_tree.pack(side="left", fill="both", expand=True)
+
+        headings = {
+            "member": "Member Name", "book": "Book Title", "type": "Transaction Type",
+            "date": "Date & Time", "status": "Status"
+        }
+        widths = {"member": 200, "book": 250, "type": 150, "date": 200, "status": 100}
+        for key in columns:
+            self.reports_tree.heading(key, text=headings[key])
+            self.reports_tree.column(key, width=widths[key], minwidth=widths[key], anchor="w")
+
+        return panel
+
     def refresh_views(self) -> None:
         if hasattr(self, "books_tree"):
             for row in self.books_tree.get_children():
@@ -667,6 +739,12 @@ class LibraryApp:
             for member in self.library.members.values():
                 borrowed = ", ".join(member.borrowed_item_ids) if member.borrowed_item_ids else "-"
                 self.members_listbox.insert(tk.END, f"{member.member_id} | {member.name} | Borrowed: {borrowed}")
+
+        if hasattr(self, "reports_tree"):
+            for row in self.reports_tree.get_children():
+                self.reports_tree.delete(row)
+            for t in self.transactions:
+                self.reports_tree.insert("", "end", values=(t["member"], t["book"], t["type"], t["date"], t["status"]))
 
         if self.screens["home"].winfo_ismapped():
             self.render_dashboard(self.screens["home"])
@@ -735,9 +813,11 @@ class LibraryApp:
 
         member = self.library.members.get(member_id)
         book = self.library.items.get(book_id)
+
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.transactions.insert(0, {
             "member": member.name, "book": book.title,
-            "type": "Borrow", "date": "Just now", "status": "Active"
+            "type": "Borrow", "date": current_time, "status": "Active"
         })
 
         self.issue_member_var.set("")
@@ -760,9 +840,11 @@ class LibraryApp:
 
         member = self.library.members.get(member_id)
         book = self.library.items.get(book_id)
+
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.transactions.insert(0, {
             "member": member.name, "book": book.title,
-            "type": "Return", "date": "Just now", "status": "Completed"
+            "type": "Return", "date": current_time, "status": "Completed"
         })
 
         self.return_member_var.set("")
