@@ -73,52 +73,10 @@ class LibraryApp:
         self.transactions = []
 
     def init_sample_data(self):
-        """Initialize sample data for the library system and sync with backend"""
-        self.books = [
-            {"title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "isbn": "978-0-7432-7356-5",
-             "status": "Available", "category": "History"},
-            {"title": "To Kill a Mockingbird", "author": "Harper Lee", "isbn": "978-0-06-112008-4",
-             "status": "Borrowed", "category": "Biology"},
-            {"title": "1984", "author": "George Orwell", "isbn": "978-0-452-28423-4", "status": "Available",
-             "category": "Chemistry"},
-            {"title": "Pride and Prejudice", "author": "Jane Austen", "isbn": "978-0-14-143951-8", "status": "Reserved",
-             "category": "Mathematics"},
-            {"title": "The Catcher in the Rye", "author": "J.D. Salinger", "isbn": "978-0-316-76948-0",
-             "status": "Borrowed", "category": "Physics"}
-        ]
-
-        self.members = [
-            {"name": "John Smith", "id": "M001", "email": "john.smith@email.com", "phone": "+1-555-0123",
-             "status": "Active"},
-            {"name": "Emily Johnson", "id": "M002", "email": "emily.j@email.com", "phone": "+1-555-0124",
-             "status": "Active"},
-            {"name": "Michael Brown", "id": "M003", "email": "m.brown@email.com", "phone": "+1-555-0125",
-             "status": "Suspended"},
-            {"name": "Sarah Davis", "id": "M004", "email": "sarah.d@email.com", "phone": "+1-555-0126",
-             "status": "Active"}
-        ]
-
-        self.transactions = [
-            {"member": "John Smith", "book": "The Great Gatsby", "type": "Return", "date": "2 hours ago",
-             "status": "Completed"},
-            {"member": "Emily Johnson", "book": "To Kill a Mockingbird", "type": "Borrow", "date": "5 hours ago",
-             "status": "Active"},
-            {"member": "Michael Brown", "book": "1984", "type": "Reserve", "date": "1 day ago", "status": "Pending"},
-            {"member": "Sarah Davis", "book": "Pride and Prejudice", "type": "Borrow", "date": "2 days ago",
-             "status": "Overdue"}
-        ]
-
-        # Integrate sample UI data directly into backend Library models
-        for b in self.books:
-            cat = b["category"]
-            if cat in BOOK_TYPES:
-                book = BOOK_TYPES[cat](b["isbn"], b["title"], 2020, b["author"], 300)
-                if b["status"] in ["Borrowed", "Reserved", "Overdue"]:
-                    book.is_borrowed = True
-                self.library.add_item(book)
-
-        for m in self.members:
-            self.library.register_member(Member(m["id"], m["name"]))
+        """Initialize empty data for the library system"""
+        self.books = []
+        self.members = []
+        self.transactions = []
 
     def _build_layout(self) -> None:
         """Create the overall structure: Sidebar + Main Area + Static Header"""
@@ -407,6 +365,11 @@ class LibraryApp:
         }
         type_icons = {'Borrow': '📖', 'Return': '📚', 'Reserve': '🔖', 'Renew': '🔄'}
 
+        if not self.transactions:
+            tk.Label(parent, text="No recent transactions.", bg=self.colors['white'], fg=self.colors['text_light'],
+                     pady=20).pack()
+            return
+
         for transaction in self.transactions[:5]:
             trans_row = tk.Frame(parent, bg=self.colors['white'])
             trans_row.pack(fill='x', padx=20, pady=8)
@@ -523,7 +486,7 @@ class LibraryApp:
                  bg=self.colors['white']).pack(anchor='w', padx=20, pady=(20, 10))
         tk.Label(stats_frame, text="Monthly Circulation", font=('Arial', 10), fg=self.colors['text_light'],
                  bg=self.colors['white']).pack(anchor='w', padx=20)
-        tk.Label(stats_frame, text="1,245 books", font=('Arial', 20, 'bold'), fg=self.colors['text_dark'],
+        tk.Label(stats_frame, text="0 books", font=('Arial', 20, 'bold'), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w', padx=20, pady=(0, 10))
 
         stats_row = tk.Frame(stats_frame, bg=self.colors['white'])
@@ -534,17 +497,17 @@ class LibraryApp:
         month_stat.pack_propagate(False)
         tk.Label(month_stat, text="This Month", font=('Arial', 9, 'bold'), fg='white',
                  bg=self.colors['card_green']).pack(pady=(8, 0))
-        tk.Label(month_stat, text="245 books", font=('Arial', 11, 'bold'), fg='white',
+        tk.Label(month_stat, text="0 books", font=('Arial', 11, 'bold'), fg='white',
                  bg=self.colors['card_green']).pack()
 
-        tk.Label(stats_row, text="Returns\n189 books", font=('Arial', 10), fg=self.colors['text_dark'],
+        tk.Label(stats_row, text="Returns\n0 books", font=('Arial', 10), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(side='left', padx=20)
 
         other_stats = tk.Frame(stats_frame, bg=self.colors['white'])
         other_stats.pack(fill='x', padx=20, pady=10)
-        tk.Label(other_stats, text="New Members This Month: 12", font=('Arial', 10), fg=self.colors['text_dark'],
+        tk.Label(other_stats, text="New Members This Month: 0", font=('Arial', 10), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w')
-        tk.Label(other_stats, text="Average Books per Member: 3.2", font=('Arial', 10), fg=self.colors['text_dark'],
+        tk.Label(other_stats, text="Average Books per Member: 0", font=('Arial', 10), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w', pady=(5, 0))
 
         alerts_frame = tk.Frame(bottom_frame, bg=self.colors['white'], width=300)
@@ -555,14 +518,11 @@ class LibraryApp:
         alerts_header.pack(fill='x', padx=20, pady=(20, 10))
         tk.Label(alerts_header, text="Alerts & Notifications", font=('Arial', 14, 'bold'), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(side='left')
-        tk.Label(alerts_header, text="3", font=('Arial', 10, 'bold'), fg='white', bg=self.colors['card_red'], width=3,
+        tk.Label(alerts_header, text="0", font=('Arial', 10, 'bold'), fg='white', bg=self.colors['card_red'], width=3,
                  height=1).pack(side='right')
 
         alerts = [
-            ("⚠️", "5 books are overdue", self.colors['card_red']),
-            ("📚", "Low stock: Fiction section", self.colors['card_orange']),
-            ("👤", "3 membership renewals due", self.colors['card_blue']),
-            ("🔔", "System backup completed", self.colors['card_green'])
+            ("🔔", "System is ready", self.colors['card_green'])
         ]
         for icon, message, color in alerts:
             alert_row = tk.Frame(alerts_frame, bg=self.colors['white'])
