@@ -2,7 +2,9 @@ import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox
 from tkinter import ttk
+import os
 
+from barcode_scanner import scan_and_fetch_book
 from models.biology_book import BiologyBook
 from models.chemistry_book import ChemistryBook
 from models.engineering_book import EngineeringBook
@@ -29,6 +31,9 @@ class LibraryApp:
         self.root.geometry("1400x900")
         self.root.minsize(1100, 700)
 
+        # This intercepts the 'X' click to ensure the camera shuts down
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         self.library = Library("City Library")
         self.status_var = tk.StringVar(value="Welcome. Add books and manage transactions.")
 
@@ -54,6 +59,11 @@ class LibraryApp:
         self._show_screen("home")
         self.refresh_views()
 
+    def on_closing(self):
+        """Safely shut down the application and force-kill dangling camera threads"""
+        self.root.destroy()
+        os._exit(0)
+
     def _init_vars(self):
         self.book_type_var = tk.StringVar(value="Biology")
         self.book_id_var = tk.StringVar()
@@ -73,13 +83,11 @@ class LibraryApp:
         self.transactions = []
 
     def init_sample_data(self):
-        """Initialize empty data for the library system"""
         self.books = []
         self.members = []
         self.transactions = []
 
     def _build_layout(self) -> None:
-        """Create the overall structure: Sidebar + Main Area + Static Header"""
         self.create_sidebar()
 
         self.main_frame = tk.Frame(self.root, bg=self.colors['main_bg'])
@@ -114,7 +122,6 @@ class LibraryApp:
                               bg=self.colors['sidebar'])
         logo_label.pack(padx=20)
 
-        # Cleaned up navigation list with Settings reinstated
         nav_items = [
             ("📊 Dashboard", True),
             ("📖 Books", False),
@@ -173,7 +180,7 @@ class LibraryApp:
         elif "Settings" in item:
             self._show_screen("settings")
         elif "Search" in item:
-            self._show_screen("delete")  # You can remap Search functionality later if needed
+            self._show_screen("delete")
         else:
             messagebox.showinfo("Navigation", f"Module '{item}' is under construction.")
 
@@ -266,11 +273,9 @@ class LibraryApp:
         return panel
 
     def render_dashboard(self, parent: tk.Frame):
-        """Clears and rebuilds a fully responsive dashboard that physically fits one screen"""
         for widget in parent.winfo_children():
             widget.destroy()
 
-        # Create three proportional rows that share the vertical space
         top_row = tk.Frame(parent, bg=self.colors['main_bg'])
         top_row.pack(fill='both', expand=True, padx=20, pady=(10, 5))
 
@@ -285,7 +290,6 @@ class LibraryApp:
         self.create_bottom_section(bot_row)
 
     def create_metric_cards(self, parent: tk.Frame):
-        """Responsive metric cards that squish and stretch automatically"""
         total_books = len(self.library.items)
         borrowed_books = sum(1 for b in self.library.items.values() if b.is_borrowed)
         available_books = total_books - borrowed_books
@@ -477,7 +481,6 @@ class LibraryApp:
                  bg=self.colors['white']).pack(anchor='w', pady=(2, 0))
 
     def _build_settings_screen(self) -> tk.Frame:
-        """Creates the settings panel to act as a hub for database management"""
         panel = self._make_panel("⚙️ Settings & Database Management")
 
         wrap = tk.Frame(panel, bg="white")
@@ -525,7 +528,7 @@ class LibraryApp:
             ("Book Type",
              ttk.Combobox(form, textvariable=self.book_type_var, values=list(BOOK_TYPES.keys()), state="readonly",
                           width=34)),
-            ("Book ID", tk.Entry(form, textvariable=self.book_id_var, width=37)),
+            ("Book ID (ISBN)", tk.Entry(form, textvariable=self.book_id_var, width=37)),
             ("Title", tk.Entry(form, textvariable=self.book_title_var, width=37)),
             ("Year", tk.Entry(form, textvariable=self.book_year_var, width=37)),
             ("Author", tk.Entry(form, textvariable=self.book_author_var, width=37)),
@@ -537,8 +540,12 @@ class LibraryApp:
             )
             widget.grid(row=row, column=1, sticky="w", pady=7)
 
+        # Added the Camera button to the Add Book screen
+        btn_frame = tk.Frame(panel, bg="white")
+        btn_frame.pack(anchor="w", padx=16, pady=(10, 16))
+
         tk.Button(
-            panel,
+            btn_frame,
             text="Save Book",
             command=self.add_book,
             bg="#1f6f43",
@@ -547,8 +554,41 @@ class LibraryApp:
             padx=14,
             pady=8,
             font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=(10, 16))
+            cursor="hand2"
+        ).pack(side="left", padx=(0, 10))
+
+        tk.Button(
+            btn_frame,
+            text="📷 Auto-Fill via Camera",
+            command=self.trigger_scanner,
+            bg=self.colors['card_blue'],
+            fg="white",
+            relief="flat",
+            padx=14,
+            pady=8,
+            font=("Segoe UI", 10, "bold"),
+            cursor="hand2"
+        ).pack(side="left")
+
         return panel
+
+    def trigger_scanner(self):
+        """Launches the OpenCV webcam and populates Tkinter fields with the result"""
+        self.status_var.set("Opening webcam... hold a book's barcode to the camera.")
+        self.root.update()  # Force UI to update before opening camera
+
+        isbn, title, author = scan_and_fetch_book()
+
+        if isbn and title:
+            self.book_id_var.set(isbn)
+            self.book_title_var.set(title)
+            self.book_author_var.set(author)
+            self.status_var.set(f"Successfully scanned '{title}'.")
+        elif isbn:
+            self.book_id_var.set(isbn)
+            self.status_var.set("Scanned ISBN, but book not found in Open Library database.")
+        else:
+            self.status_var.set("Scan cancelled.")
 
     def _build_view_books_screen(self) -> tk.Frame:
         panel = self._make_panel("View Books")

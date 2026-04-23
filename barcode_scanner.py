@@ -1,6 +1,7 @@
 import cv2
 from pyzbar.pyzbar import decode
 import requests
+import time
 
 
 def fetch_book_data(isbn):
@@ -13,13 +14,10 @@ def fetch_book_data(isbn):
 
         if key in data:
             book = data[key]
-            title = book.get("title", "Unknown Title")
-
-            # Extract authors if available
+            title = book.get("title", "")
             authors_data = book.get("authors", [])
             authors = [author["name"] for author in authors_data]
             author_str = ", ".join(authors) if authors else "Unknown Author"
-
             return title, author_str
     except Exception as e:
         print(f"Network error: {e}")
@@ -27,72 +25,61 @@ def fetch_book_data(isbn):
     return None, None
 
 
-def run_scanner():
-    """Launch the webcam, scan barcodes, and overlay graphical data"""
+def scan_and_fetch_book():
+    """Opens the webcam, reads one valid book barcode, and returns the data"""
     cap = cv2.VideoCapture(0)
-    print("Starting webcam... Hold a book barcode up to the camera.")
-    print("Press 'q' on your keyboard to close the scanner.")
-
-    last_scanned_isbn = None
-    display_title = ""
-    display_author = ""
+    scanned_isbn = None
+    scanned_title = None
+    scanned_author = None
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("Failed to grab frame. Check your webcam.")
             break
 
-        # Decode any barcodes in the current frame
         barcodes = decode(frame)
 
         for barcode in barcodes:
-            # 1. Draw a graphical bounding box around the barcode
             (x, y, w, h) = barcode.rect
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-
-            # 2. Decode the raw data
             barcode_data = barcode.data.decode("utf-8")
             barcode_type = barcode.type
 
-            # 3. If it's a new barcode, query the API
-            if barcode_data != last_scanned_isbn:
-                print(f"Scanned {barcode_type}: {barcode_data}")
-                last_scanned_isbn = barcode_data
+            if barcode_type in ['EAN13', 'ISBN13', 'ISBN10']:
+                # Show loading text
+                cv2.putText(frame, "Fetching data...", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                cv2.imshow("Book Barcode Scanner", frame)
+                cv2.waitKey(1)  # Force UI update before the network request freezes it
 
-                # Book barcodes are typically EAN13 or ISBN13/ISBN10 formats
-                if barcode_type in ['EAN13', 'ISBN13', 'ISBN10']:
-                    title, author = fetch_book_data(barcode_data)
-                    if title:
-                        display_title = title
-                        display_author = author
-                    else:
-                        display_title = "Book not found in database"
-                        display_author = f"ISBN: {barcode_data}"
-                else:
-                    display_title = f"Unknown Format: {barcode_type}"
-                    display_author = barcode_data
+                title, author = fetch_book_data(barcode_data)
 
-            # 4. Create graphical text overlays above the barcode
-            # We add a slight black shadow/outline to make the text readable against any background
-            cv2.putText(frame, display_title, (x, y - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4)
-            cv2.putText(frame, display_title, (x, y - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                if title:
+                    scanned_isbn = barcode_data
+                    scanned_title = title
+                    scanned_author = author
 
-            if display_author:
-                cv2.putText(frame, display_author, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
-                cv2.putText(frame, display_author, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+                    # Show success graphics briefly before closing
+                    cv2.putText(frame, f"Found: {title}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    cv2.imshow("Book Barcode Scanner", frame)
+                    cv2.waitKey(1000)  # Pause for 1 second so the user sees it worked
+                    break
 
-        # Render the live feed
+        if scanned_isbn:
+            break  # Exit the while loop if we successfully got a book
+
         cv2.imshow("Book Barcode Scanner", frame)
 
-        # Break the loop if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        # Allow manual exit with 'q' or 'Esc'
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q') or key == 27:
             break
 
-    # Clean up hardware resources
+        # Safely exit if the user clicks the 'X' on the OpenCV window
+        if cv2.getWindowProperty("Book Barcode Scanner", cv2.WND_PROP_VISIBLE) < 1:
+            break
+
+    # Clean up hardware resources safely
     cap.release()
     cv2.destroyAllWindows()
 
-
-if __name__ == "__main__":
-    run_scanner()
+    return scanned_isbn, scanned_title, scanned_author
