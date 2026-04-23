@@ -85,10 +85,8 @@ class LibraryApp:
         self.main_frame = tk.Frame(self.root, bg=self.colors['main_bg'])
         self.main_frame.pack(side='right', fill='both', expand=True)
 
-        # Static Header
         self.create_header(self.main_frame)
 
-        # Content Frame where screens switch
         self.content_frame = tk.Frame(self.main_frame, bg=self.colors['main_bg'])
         self.content_frame.pack(fill='both', expand=True)
 
@@ -105,7 +103,6 @@ class LibraryApp:
         self.status_label.pack(side="bottom", fill="x")
 
     def create_sidebar(self):
-        """Create the left sidebar navigation"""
         self.sidebar = tk.Frame(self.root, bg=self.colors['sidebar'], width=250)
         self.sidebar.pack(side='left', fill='y')
         self.sidebar.pack_propagate(False)
@@ -162,7 +159,6 @@ class LibraryApp:
                  bg=self.colors['sidebar']).pack(padx=20, pady=5)
 
     def nav_click(self, item):
-        """Handle navigation clicks and route to actual screens"""
         if "Dashboard" in item:
             self._show_screen("home")
         elif "Books" in item:
@@ -177,7 +173,6 @@ class LibraryApp:
             messagebox.showinfo("Navigation", f"Module '{item}' is under construction.")
 
     def quick_action(self, action):
-        """Handle quick action clicks"""
         if "Add Book" in action:
             self._show_screen("add")
         elif "Add Member" in action:
@@ -186,7 +181,6 @@ class LibraryApp:
             messagebox.showinfo("Quick Action", f"Action '{action}' triggered.")
 
     def create_header(self, parent):
-        """Create the top header with search and user info"""
         header = tk.Frame(parent, bg=self.colors['white'], height=80)
         header.pack(fill='x', padx=20, pady=20)
         header.pack_propagate(False)
@@ -271,71 +265,26 @@ class LibraryApp:
         return panel
 
     def render_dashboard(self, parent: tk.Frame):
-        """Clears and rebuilds the dashboard dynamically with full scrolling"""
+        """Clears and rebuilds a fully responsive dashboard that physically fits one screen"""
         for widget in parent.winfo_children():
             widget.destroy()
 
-        canvas_container = tk.Frame(parent, bg=self.colors['main_bg'])
-        canvas_container.pack(fill="both", expand=True)
+        # Create three proportional rows that share the vertical space
+        top_row = tk.Frame(parent, bg=self.colors['main_bg'])
+        top_row.pack(fill='both', expand=True, padx=20, pady=(10, 5))
 
-        content_canvas = tk.Canvas(canvas_container, bg=self.colors['main_bg'], highlightthickness=0)
-        v_scrollbar = ttk.Scrollbar(canvas_container, orient="vertical", command=content_canvas.yview)
-        h_scrollbar = ttk.Scrollbar(canvas_container, orient="horizontal", command=content_canvas.xview)
+        mid_row = tk.Frame(parent, bg=self.colors['main_bg'])
+        mid_row.pack(fill='both', expand=True, padx=20, pady=5)
 
-        scrollable_frame = tk.Frame(content_canvas, bg=self.colors['main_bg'])
+        bot_row = tk.Frame(parent, bg=self.colors['main_bg'])
+        bot_row.pack(fill='both', expand=True, padx=20, pady=(5, 20))
 
-        canvas_window = content_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self.create_metric_cards(top_row)
+        self.create_middle_section(mid_row)
+        self.create_bottom_section(bot_row)
 
-        def configure_scrollregion(event):
-            content_canvas.configure(scrollregion=content_canvas.bbox("all"))
-
-        def configure_canvas_width(event):
-            # If the window is wider than the content, stretch it to fit the full screen
-            if event.width > scrollable_frame.winfo_reqwidth():
-                content_canvas.itemconfig(canvas_window, width=event.width)
-            else:
-                content_canvas.itemconfig(canvas_window, width='')
-
-        scrollable_frame.bind("<Configure>", configure_scrollregion)
-        content_canvas.bind("<Configure>", configure_canvas_width)
-
-        content_canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
-
-        # Pack scrollbars and canvas
-        v_scrollbar.pack(side="right", fill="y")
-        h_scrollbar.pack(side="bottom", fill="x")
-        content_canvas.pack(side="left", fill="both", expand=True)
-
-        # --- Mouse Scrollwheel Bindings ---
-        def _on_mousewheel(event):
-            # Handles Windows, macOS, and Linux scroll events
-            if event.num == 4 or event.delta > 0:
-                content_canvas.yview_scroll(-1, "units")
-            elif event.num == 5 or event.delta < 0:
-                content_canvas.yview_scroll(1, "units")
-
-        def _bind_mouse(event):
-            content_canvas.bind_all("<MouseWheel>", _on_mousewheel)
-            content_canvas.bind_all("<Button-4>", _on_mousewheel)
-            content_canvas.bind_all("<Button-5>", _on_mousewheel)
-
-        def _unbind_mouse(event):
-            content_canvas.unbind_all("<MouseWheel>")
-            content_canvas.unbind_all("<Button-4>")
-            content_canvas.unbind_all("<Button-5>")
-
-        canvas_container.bind("<Enter>", _bind_mouse)
-        canvas_container.bind("<Leave>", _unbind_mouse)
-
-        # Add the dashboard components
-        self.create_metric_cards(scrollable_frame)
-        self.create_middle_section(scrollable_frame)
-        self.create_bottom_section(scrollable_frame)
     def create_metric_cards(self, parent: tk.Frame):
-        """Create the colorful metric cards reading from real Library data"""
-        cards_frame = tk.Frame(parent, bg=self.colors['main_bg'])
-        cards_frame.pack(fill='x', padx=20, pady=10)
-
+        """Responsive metric cards that squish and stretch automatically"""
         total_books = len(self.library.items)
         borrowed_books = sum(1 for b in self.library.items.values() if b.is_borrowed)
         available_books = total_books - borrowed_books
@@ -348,39 +297,35 @@ class LibraryApp:
             (f"{overdue_books:,}", "Overdue Books", self.colors['card_red'], "⚠️")
         ]
 
-        row_frame = tk.Frame(cards_frame, bg=self.colors['main_bg'])
-        row_frame.pack(fill='x', pady=5)
         for col, (value, label, color, icon) in enumerate(cards_data):
-            card = tk.Frame(row_frame, bg=color, width=280, height=122)
-            card.grid(row=0, column=col, padx=10, pady=5, sticky='ew')
-            card.pack_propagate(False)
-            tk.Label(card, text=icon, font=('Arial', 20), fg='white', bg=color).pack(pady=(15, 5))
-            tk.Label(card, text=value, font=('Arial', 24, 'bold'), fg='white', bg=color).pack()
-            tk.Label(card, text=label, font=('Arial', 10), fg='white', bg=color).pack(pady=(0, 10))
-            row_frame.grid_columnconfigure(col, weight=1)
+            parent.grid_columnconfigure(col, weight=1)
+
+            card = tk.Frame(parent, bg=color)
+            card.grid(row=0, column=col, padx=10, sticky='nsew')
+
+            tk.Label(card, text=icon, font=('Arial', 20), fg='white', bg=color).pack(pady=(10, 2))
+            tk.Label(card, text=value, font=('Arial', 22, 'bold'), fg='white', bg=color).pack()
+            tk.Label(card, text=label, font=('Arial', 10), fg='white', bg=color).pack(pady=(0, 5))
+
+        parent.grid_rowconfigure(0, weight=1)
 
     def create_middle_section(self, parent: tk.Frame):
-        middle_frame = tk.Frame(parent, bg=self.colors['main_bg'])
-        middle_frame.pack(fill='x', padx=20, pady=20)
-
-        left_frame = tk.Frame(middle_frame, bg=self.colors['white'], relief='flat', bd=1)
+        left_frame = tk.Frame(parent, bg=self.colors['white'], relief='flat', bd=1)
         left_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
 
         trans_header = tk.Frame(left_frame, bg=self.colors['white'])
-        trans_header.pack(fill='x', padx=20, pady=(20, 10))
-        tk.Label(trans_header, text="Recent Transactions", font=('Arial', 16, 'bold'), fg=self.colors['text_dark'],
+        trans_header.pack(fill='x', padx=20, pady=(15, 5))
+        tk.Label(trans_header, text="Recent Transactions", font=('Arial', 14, 'bold'), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(side='left')
-        tk.Button(trans_header, text="View All", font=('Arial', 10), bg=self.colors['card_blue'], fg='white', bd=0,
-                  padx=15, pady=5, cursor='hand2').pack(side='right')
 
         self.create_transactions_list(left_frame)
 
-        right_frame = tk.Frame(middle_frame, bg=self.colors['white'], relief='flat', bd=1)
+        right_frame = tk.Frame(parent, bg=self.colors['white'], relief='flat', bd=1)
         right_frame.pack(side='right', fill='both', expand=True, padx=(10, 0))
 
         cat_header = tk.Frame(right_frame, bg=self.colors['white'])
-        cat_header.pack(fill='x', padx=20, pady=(20, 10))
-        tk.Label(cat_header, text="Book Categories", font=('Arial', 16, 'bold'), fg=self.colors['text_dark'],
+        cat_header.pack(fill='x', padx=20, pady=(15, 5))
+        tk.Label(cat_header, text="Book Categories", font=('Arial', 14, 'bold'), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack()
 
         self.create_category_chart(right_frame)
@@ -399,42 +344,38 @@ class LibraryApp:
                      pady=20).pack()
             return
 
-        for transaction in self.transactions[:5]:
+        for transaction in self.transactions[:4]:
             trans_row = tk.Frame(parent, bg=self.colors['white'])
-            trans_row.pack(fill='x', padx=20, pady=8)
+            trans_row.pack(fill='x', padx=20, pady=5)
 
             icon_color = status_colors.get(transaction['status'], self.colors['card_blue'])
-            icon_frame = tk.Frame(trans_row, bg=icon_color, width=40, height=40)
+            icon_frame = tk.Frame(trans_row, bg=icon_color, width=35, height=35)
             icon_frame.pack(side='left', padx=(0, 15))
             icon_frame.pack_propagate(False)
 
             icon_text = type_icons.get(transaction['type'], '📄')
-            tk.Label(icon_frame, text=icon_text, font=('Arial', 12), fg='white', bg=icon_color).place(relx=0.5,
+            tk.Label(icon_frame, text=icon_text, font=('Arial', 10), fg='white', bg=icon_color).place(relx=0.5,
                                                                                                       rely=0.5,
                                                                                                       anchor='center')
 
             details_frame = tk.Frame(trans_row, bg=self.colors['white'])
             details_frame.pack(side='left', fill='x', expand=True)
-            tk.Label(details_frame, text=f"{transaction['member']} - {transaction['book']}", font=('Arial', 11, 'bold'),
+            tk.Label(details_frame, text=f"{transaction['member']} - {transaction['book']}", font=('Arial', 10, 'bold'),
                      fg=self.colors['text_dark'], bg=self.colors['white']).pack(anchor='w')
-            tk.Label(details_frame, text=f"{transaction['type']} • {transaction['date']}", font=('Arial', 9),
+            tk.Label(details_frame, text=f"{transaction['type']} • {transaction['date']}", font=('Arial', 8),
                      fg=self.colors['text_light'], bg=self.colors['white']).pack(anchor='w')
 
             right_details = tk.Frame(trans_row, bg=self.colors['white'])
             right_details.pack(side='right')
 
             status_bg = status_colors.get(transaction['status'], self.colors['card_blue'])
-            tk.Label(right_details, text=transaction['status'], font=('Arial', 9, 'bold'), fg='white', bg=status_bg,
-                     padx=8, pady=2).pack(anchor='e')
-            tk.Button(right_details, text="⋯", font=('Arial', 12), bg=self.colors['white'], bd=0, cursor='hand2').pack(
-                side='right', padx=10)
+            tk.Label(right_details, text=transaction['status'], font=('Arial', 8, 'bold'), fg='white', bg=status_bg,
+                     padx=6, pady=2).pack(anchor='e')
 
     def create_category_chart(self, parent: tk.Frame):
-        chart_frame = tk.Frame(parent, bg=self.colors['white'], height=200)
-        chart_frame.pack(fill='x', padx=20, pady=20)
-        chart_frame.pack_propagate(False)
+        chart_frame = tk.Frame(parent, bg=self.colors['white'])
+        chart_frame.pack(fill='both', expand=True, padx=20, pady=10)
 
-        # Read true categories from Library items
         categories = {}
         for book in self.library.items.values():
             ctype = book.get_item_type()
@@ -443,7 +384,7 @@ class LibraryApp:
         if not categories:
             categories = {'None': 1}
 
-        canvas = tk.Canvas(chart_frame, bg=self.colors['white'], height=180, highlightthickness=0)
+        canvas = tk.Canvas(chart_frame, bg=self.colors['white'], highlightthickness=0)
         canvas.pack(fill='both', expand=True)
 
         colors = [self.colors['card_blue'], self.colors['card_green'], self.colors['card_orange'],
@@ -452,11 +393,11 @@ class LibraryApp:
         max_value = max(categories.values()) if categories else 1
         bar_height = 20
         spacing = 25
-        start_y = 20
+        start_y = 10
 
         for i, (category, count) in enumerate(categories.items()):
             y = start_y + i * spacing
-            bar_width = int((count / max_value) * 200)
+            bar_width = int((count / max_value) * 150)
             color = colors[i % len(colors)]
 
             canvas.create_rectangle(80, y, 80 + bar_width, y + bar_height, fill=color, outline="")
@@ -466,116 +407,73 @@ class LibraryApp:
                                fill=self.colors['text_light'])
 
     def create_bottom_section(self, parent: tk.Frame):
-        bottom_frame = tk.Frame(parent, bg=self.colors['main_bg'])
-        bottom_frame.pack(fill='x', padx=20, pady=20)
+        members_frame = tk.Frame(parent, bg=self.colors['white'])
+        members_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
 
-        # Left side - Top Members
-        members_frame = tk.Frame(bottom_frame, bg=self.colors['white'], width=400)
-        members_frame.pack(side='left', fill='y', padx=(0, 10))
-        members_frame.pack_propagate(False)
+        tk.Label(members_frame, text="Top Active Members", font=('Arial', 14, 'bold'), fg=self.colors['text_dark'],
+                 bg=self.colors['white']).pack(anchor='w', padx=20, pady=(15, 5))
 
-        tk.Label(members_frame, text="Top Active Members", font=('Arial', 16, 'bold'), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(anchor='w', padx=20, pady=(20, 10))
-
-        # Determine top members dynamically
         all_members = list(self.library.members.values())
         all_members.sort(key=lambda m: len(m.borrowed_item_ids), reverse=True)
         colors = [self.colors['card_green'], self.colors['card_blue'], self.colors['card_orange'],
                   self.colors['card_purple']]
 
         if not all_members:
-            tk.Label(members_frame, text="No members yet.", bg="white").pack(pady=20)
+            tk.Label(members_frame, text="No members yet.", bg="white").pack(pady=10)
         else:
-            for i, member in enumerate(all_members[:4]):
+            for i, member in enumerate(all_members[:3]):
                 color = colors[i % len(colors)]
                 name = member.name
                 member_id = member.member_id
-                activity = f"{len(member.borrowed_item_ids)} books borrowed"
+                activity = f"{len(member.borrowed_item_ids)} books"
 
                 member_row = tk.Frame(members_frame, bg=self.colors['white'])
-                member_row.pack(fill='x', padx=20, pady=5)
+                member_row.pack(fill='x', padx=20, pady=2)
 
-                avatar = tk.Frame(member_row, bg=color, width=35, height=35)
-                avatar.pack(side='left', padx=(0, 15))
+                avatar = tk.Frame(member_row, bg=color, width=30, height=30)
+                avatar.pack(side='left', padx=(0, 10))
                 avatar.pack_propagate(False)
-                tk.Label(avatar, text=name[0].upper(), font=('Arial', 12, 'bold'), fg='white', bg=color).place(relx=0.5,
+                tk.Label(avatar, text=name[0].upper(), font=('Arial', 10, 'bold'), fg='white', bg=color).place(relx=0.5,
                                                                                                                rely=0.5,
                                                                                                                anchor='center')
 
                 info_frame = tk.Frame(member_row, bg=self.colors['white'])
                 info_frame.pack(side='left', fill='x', expand=True)
-                tk.Label(info_frame, text=name, font=('Arial', 11, 'bold'), fg=self.colors['text_dark'],
+                tk.Label(info_frame, text=name, font=('Arial', 10, 'bold'), fg=self.colors['text_dark'],
                          bg=self.colors['white']).pack(anchor='w')
-                tk.Label(info_frame, text=f"{member_id} • {activity}", font=('Arial', 9), fg=self.colors['text_light'],
+                tk.Label(info_frame, text=f"{member_id} • {activity}", font=('Arial', 8), fg=self.colors['text_light'],
                          bg=self.colors['white']).pack(anchor='w')
 
-        # Right side - Library Stats
-        stats_frame = tk.Frame(bottom_frame, bg=self.colors['white'])
+        stats_frame = tk.Frame(parent, bg=self.colors['white'])
         stats_frame.pack(side='left', fill='both', expand=True, padx=10)
 
-        tk.Label(stats_frame, text="Library Statistics", font=('Arial', 16, 'bold'), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(anchor='w', padx=20, pady=(20, 10))
+        tk.Label(stats_frame, text="Library Statistics", font=('Arial', 14, 'bold'), fg=self.colors['text_dark'],
+                 bg=self.colors['white']).pack(anchor='w', padx=20, pady=(15, 5))
         tk.Label(stats_frame, text="Monthly Circulation", font=('Arial', 10), fg=self.colors['text_light'],
                  bg=self.colors['white']).pack(anchor='w', padx=20)
-        tk.Label(stats_frame, text="0 books", font=('Arial', 20, 'bold'), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(anchor='w', padx=20, pady=(0, 10))
+        tk.Label(stats_frame, text="0 books", font=('Arial', 18, 'bold'), fg=self.colors['text_dark'],
+                 bg=self.colors['white']).pack(anchor='w', padx=20, pady=(0, 5))
 
         stats_row = tk.Frame(stats_frame, bg=self.colors['white'])
-        stats_row.pack(fill='x', padx=20, pady=10)
+        stats_row.pack(fill='x', padx=20, pady=5)
 
-        month_stat = tk.Frame(stats_row, bg=self.colors['card_green'], width=120, height=50)
+        month_stat = tk.Frame(stats_row, bg=self.colors['card_green'], width=100, height=45)
         month_stat.pack(side='left', padx=(0, 10))
         month_stat.pack_propagate(False)
-        tk.Label(month_stat, text="This Month", font=('Arial', 9, 'bold'), fg='white',
-                 bg=self.colors['card_green']).pack(pady=(8, 0))
-        tk.Label(month_stat, text="0 books", font=('Arial', 11, 'bold'), fg='white',
+        tk.Label(month_stat, text="This Month", font=('Arial', 8, 'bold'), fg='white',
+                 bg=self.colors['card_green']).pack(pady=(4, 0))
+        tk.Label(month_stat, text="0 books", font=('Arial', 10, 'bold'), fg='white',
                  bg=self.colors['card_green']).pack()
 
         tk.Label(stats_row, text="Returns\n0 books", font=('Arial', 10), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(side='left', padx=20)
+                 bg=self.colors['white']).pack(side='left', padx=15)
 
         other_stats = tk.Frame(stats_frame, bg=self.colors['white'])
-        other_stats.pack(fill='x', padx=20, pady=10)
-        tk.Label(other_stats, text="New Members This Month: 0", font=('Arial', 10), fg=self.colors['text_dark'],
+        other_stats.pack(fill='x', padx=20, pady=5)
+        tk.Label(other_stats, text="New Members This Month: 0", font=('Arial', 9), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w')
-        tk.Label(other_stats, text="Average Books per Member: 0", font=('Arial', 10), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(anchor='w', pady=(5, 0))
-
-        alerts_frame = tk.Frame(bottom_frame, bg=self.colors['white'], width=300)
-        alerts_frame.pack(side='right', fill='y', padx=(10, 0))
-        alerts_frame.pack_propagate(False)
-
-        alerts_header = tk.Frame(alerts_frame, bg=self.colors['white'])
-        alerts_header.pack(fill='x', padx=20, pady=(20, 10))
-        tk.Label(alerts_header, text="Alerts & Notifications", font=('Arial', 14, 'bold'), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(side='left')
-        tk.Label(alerts_header, text="0", font=('Arial', 10, 'bold'), fg='white', bg=self.colors['card_red'], width=3,
-                 height=1).pack(side='right')
-
-        alerts = [
-            ("🔔", "System is ready", self.colors['card_green'])
-        ]
-        for icon, message, color in alerts:
-            alert_row = tk.Frame(alerts_frame, bg=self.colors['white'])
-            alert_row.pack(fill='x', padx=20, pady=5)
-            icon_frame = tk.Frame(alert_row, bg=color, width=30, height=30)
-            icon_frame.pack(side='left', padx=(0, 10))
-            icon_frame.pack_propagate(False)
-            tk.Label(icon_frame, text=icon, font=('Arial', 10), fg='white', bg=color).place(relx=0.5, rely=0.5,
-                                                                                            anchor='center')
-            tk.Label(alert_row, text=message, font=('Arial', 10), fg=self.colors['text_dark'],
-                     bg=self.colors['white']).pack(side='left')
-
-        actions_frame = tk.Frame(alerts_frame, bg=self.colors['white'])
-        actions_frame.pack(fill='x', padx=20, pady=10)
-        tk.Label(actions_frame, text="Quick Actions", font=('Arial', 12, 'bold'), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(anchor='w', pady=(10, 5))
-        tk.Button(actions_frame, text="📄 Generate Report", font=('Arial', 10), bg=self.colors['card_blue'], fg='white',
-                  bd=0, pady=5, cursor='hand2').pack(fill='x', pady=2)
-        tk.Button(actions_frame, text="📧 Send Reminders", font=('Arial', 10), bg=self.colors['card_orange'], fg='white',
-                  bd=0, pady=5, cursor='hand2').pack(fill='x', pady=2)
-        tk.Button(actions_frame, text="🔍 Search Catalog", font=('Arial', 10), bg=self.colors['card_green'], fg='white',
-                  bd=0, pady=5, cursor='hand2').pack(fill='x', pady=2)
+        tk.Label(other_stats, text="Average Books per Member: 0", font=('Arial', 9), fg=self.colors['text_dark'],
+                 bg=self.colors['white']).pack(anchor='w', pady=(2, 0))
 
     def _build_add_book_screen(self) -> tk.Frame:
         panel = self._make_panel("Add Book")
@@ -712,12 +610,15 @@ class LibraryApp:
         panel = self._make_panel("Register Member")
         form = tk.Frame(panel, bg="white")
         form.pack(anchor="w", padx=16, pady=10)
+
         tk.Label(form, text="Member ID", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", pady=6,
                                                                                  padx=(0, 10))
         tk.Entry(form, textvariable=self.member_id_var, width=35).grid(row=0, column=1, sticky="w", pady=6)
+
         tk.Label(form, text="Name", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=6,
                                                                             padx=(0, 10))
         tk.Entry(form, textvariable=self.member_name_var, width=35).grid(row=1, column=1, sticky="w", pady=6)
+
         tk.Button(
             panel,
             text="Register",
@@ -729,8 +630,22 @@ class LibraryApp:
             pady=8,
             font=("Segoe UI", 10, "bold"),
         ).pack(anchor="w", padx=16, pady=(8, 12))
-        self.members_listbox = tk.Listbox(panel, width=85, height=14)
-        self.members_listbox.pack(fill="x", padx=16, pady=(4, 16))
+
+        list_container = tk.Frame(panel, bg="white")
+        list_container.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+
+        v_scroll = ttk.Scrollbar(list_container, orient="vertical")
+        h_scroll = ttk.Scrollbar(list_container, orient="horizontal")
+
+        self.members_listbox = tk.Listbox(list_container, yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+
+        v_scroll.config(command=self.members_listbox.yview)
+        h_scroll.config(command=self.members_listbox.xview)
+
+        v_scroll.pack(side="right", fill="y")
+        h_scroll.pack(side="bottom", fill="x")
+        self.members_listbox.pack(side="left", fill="both", expand=True)
+
         return panel
 
     def refresh_views(self) -> None:
@@ -818,7 +733,6 @@ class LibraryApp:
             messagebox.showerror("Issue Failed", message)
             return
 
-        # Dynamically inject into transactions for dashboard
         member = self.library.members.get(member_id)
         book = self.library.items.get(book_id)
         self.transactions.insert(0, {
@@ -844,7 +758,6 @@ class LibraryApp:
             messagebox.showerror("Return Failed", message)
             return
 
-        # Dynamically inject into transactions for dashboard
         member = self.library.members.get(member_id)
         book = self.library.items.get(book_id)
         self.transactions.insert(0, {
