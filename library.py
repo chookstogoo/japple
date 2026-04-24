@@ -76,6 +76,7 @@ class Library:
         if item is None:
             return False, "Item not found."
 
+        # Keep member borrow lists consistent if a borrowed item is deleted.
         for member in self.members.values():
             if item_id in member.borrowed_item_ids:
                 member.borrowed_item_ids.remove(item_id)

@@ -8,6 +8,22 @@ class Library:
         self.items: dict[str, LibraryItem] = {}
         self.members: dict[str, Member] = {}
 
+        # User Authentication Storage
+        self.users = {}
+        # Create a default fallback admin so you don't get locked out
+        self.users["admin"] = {"password": "password123", "role": "admin"}
+
+    def register_user(self, username, password, role) -> tuple[bool, str]:
+        if username in self.users:
+            return False, "Username already exists."
+        self.users[username] = {"password": password, "role": role}
+        return True, "Account created successfully."
+
+    def authenticate_user(self, username, password) -> tuple[bool, str]:
+        if username in self.users and self.users[username]["password"] == password:
+            return True, self.users[username]["role"]
+        return False, None
+
     def add_item(self, item: LibraryItem) -> bool:
         if item.item_id in self.items:
             return False
