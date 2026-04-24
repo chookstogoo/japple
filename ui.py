@@ -189,6 +189,8 @@ class LibraryApp:
         self.return_member_var = tk.StringVar()
         self.return_book_var = tk.StringVar()
         self.delete_id_var = tk.StringVar()
+        self.request_member_var = tk.StringVar()
+        self.request_book_var = tk.StringVar()
         self.books = []
         self.members = []
         self.transactions = []
@@ -243,7 +245,7 @@ class LibraryApp:
         else:
             # Hide Dashboard, Members, Settings, and Search from regular members
             nav_items = [
-                ("📖 Books", True), ("🔄 Transactions", False), ("📋 Reports", False)
+                ("📖 Books", True), ("🔄 Request Book", False), ("📋 Reports", False)  # <-- Changed here
             ]
 
         for item, is_active in nav_items:
@@ -291,6 +293,8 @@ class LibraryApp:
             self._show_screen("member")
         elif "Transactions" in item:
             self._show_screen("issue")
+        elif "Request Book" in item:
+            self._show_screen("request")
         elif "Reports" in item:
             self._show_screen("report")
         elif "Settings" in item:
@@ -386,6 +390,7 @@ class LibraryApp:
             "delete": self._build_delete_book_screen(),
             "issue": self._build_issue_book_screen(),
             "return": self._build_return_book_screen(),
+            "request": self._build_request_book_screen(),
             "member": self._build_member_screen(),
             "report": self._build_report_screen(),
             "settings": self._build_settings_screen(),
@@ -862,6 +867,66 @@ class LibraryApp:
             font=("Segoe UI", 10, "bold"),
         ).pack(anchor="w", padx=16, pady=8)
         return panel
+
+    def _build_request_book_screen(self) -> tk.Frame:
+        panel = self._make_panel("Request Book")
+        wrap = tk.Frame(panel, bg="white")
+        wrap.pack(anchor="w", padx=16, pady=12)
+
+        tk.Label(wrap, text="Member ID", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", pady=6,
+                                                                                 padx=(0, 10))
+        tk.Entry(wrap, textvariable=self.request_member_var, width=35).grid(row=0, column=1, sticky="w", pady=6)
+
+        tk.Label(wrap, text="Book ID", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=6,
+                                                                               padx=(0, 10))
+        tk.Entry(wrap, textvariable=self.request_book_var, width=35).grid(row=1, column=1, sticky="w", pady=6)
+
+        tk.Button(
+            panel,
+            text="Submit Request",
+            command=self.request_book,
+            bg=self.colors['card_orange'],  # Orange color indicates it's pending/requested
+            fg="white",
+            relief="flat",
+            padx=14,
+            pady=8,
+            font=("Segoe UI", 10, "bold"),
+            cursor="hand2"
+        ).pack(anchor="w", padx=16, pady=8)
+
+        return panel
+
+    def request_book(self) -> None:
+        member_id = self.request_member_var.get().strip()
+        book_id = self.request_book_var.get().strip()
+
+        if not member_id or not book_id:
+            messagebox.showerror("Error", "Enter member ID and book ID.")
+            return
+
+        member = self.library.members.get(member_id)
+        book = self.library.items.get(book_id)
+
+        if member is None:
+            messagebox.showerror("Error", "Member not found. Please register first.")
+            return
+        if book is None:
+            messagebox.showerror("Error", "Book not found in the catalog.")
+            return
+
+        # Add to the transactions list with a "Pending" status
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self.transactions.insert(0, {
+            "member": member.name, "book": book.title,
+            "type": "Request", "date": current_time, "status": "Pending"
+        })
+
+        self.request_member_var.set("")
+        self.request_book_var.set("")
+        self.refresh_views()
+        self.status_var.set(f"Book '{book.title}' requested by {member.name}.")
+        messagebox.showinfo("Success",
+                            f"Your request for '{book.title}' has been submitted and is pending admin approval.")
 
     def _build_return_book_screen(self) -> tk.Frame:
         panel = self._make_panel("Return Book")
