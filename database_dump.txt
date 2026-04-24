@@ -1,0 +1,12 @@
+=== LIBRARY SYSTEM DATABASE TEXT DUMP ===
+
+--- TABLE: users ---
+Format: (Username, Password, Role)
+('admin', 'password123', 'admin')
+('1', '12345678', 'member')
+
+--- TABLE: books ---
+Format: (ID, Type, Title, Year, Author, Pages, BorrowedStatus)
+
+--- TABLE: members ---
+Format: (ID, Name, BorrowedItemIDs)
