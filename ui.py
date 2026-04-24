@@ -36,7 +36,11 @@ class LibraryApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.library = Library("City Library")
-        self.status_var = tk.StringVar(value="Welcome. Add books and manage transactions.")
+
+        # Setup initial state variables
+        self.status_var = tk.StringVar(value="Welcome to the Library System.")
+        self.current_user = None
+        self.current_role = None
 
         self.colors = {
             "sidebar": "#1e293b",
@@ -53,16 +57,123 @@ class LibraryApp:
         }
         self.root.configure(bg=self.colors["main_bg"])
 
-        self._init_vars()
-        self.init_sample_data()
-        self._build_layout()
-        self._build_screens()
-        self._show_screen("home")
-        self.refresh_views()
+        # 🚨 THE FIX: We stop the dashboard from loading here.
+        # We ONLY load the gatekeeper login screen on boot.
+        self._build_login_screen()
 
     def on_closing(self):
         self.root.destroy()
         os._exit(0)
+
+    # ==========================================
+    # GATEKEEPER: SPLIT LOGIN & SIGNUP SCREEN
+    # ==========================================
+    def _build_login_screen(self):
+        self.login_container = tk.Frame(self.root, bg=self.colors["main_bg"])
+        self.login_container.pack(fill="both", expand=True)
+
+        # Left Half: SIGN UP
+        signup_frame = tk.Frame(self.login_container, bg="#e2e8f0")
+        signup_frame.pack(side="left", fill="both", expand=True)
+
+        # Right Half: SIGN IN
+        signin_frame = tk.Frame(self.login_container, bg="white")
+        signin_frame.pack(side="right", fill="both", expand=True)
+
+        # --- Sign Up UI ---
+        tk.Label(signup_frame, text="Create Account", font=("Segoe UI", 28, "bold"), bg="#e2e8f0",
+                 fg=self.colors['text_dark']).pack(pady=(180, 30))
+
+        tk.Label(signup_frame, text="Username", bg="#e2e8f0", font=("Segoe UI", 12)).pack(pady=(10, 0))
+        self.signup_user = tk.StringVar()
+        tk.Entry(signup_frame, textvariable=self.signup_user, font=("Segoe UI", 14), width=25).pack(pady=5)
+
+        tk.Label(signup_frame, text="Password (Min 8 chars)", bg="#e2e8f0", font=("Segoe UI", 12)).pack(pady=(10, 0))
+        self.signup_pass = tk.StringVar()
+        tk.Entry(signup_frame, textvariable=self.signup_pass, font=("Segoe UI", 14), width=25, show="*").pack(pady=5)
+
+        tk.Label(signup_frame, text="Account Role", bg="#e2e8f0", font=("Segoe UI", 12)).pack(pady=(10, 0))
+        self.signup_role = tk.StringVar(value="member")
+        ttk.Combobox(signup_frame, textvariable=self.signup_role, values=["member", "admin"], state="readonly",
+                     font=("Segoe UI", 14), width=23).pack(pady=5)
+
+        tk.Button(signup_frame, text="Sign Up", font=("Segoe UI", 12, "bold"), bg=self.colors['card_green'], fg="white",
+                  command=self.handle_signup, width=20, pady=8, cursor="hand2").pack(pady=30)
+
+        # --- Sign In UI ---
+        tk.Label(signin_frame, text="Welcome Back", font=("Segoe UI", 28, "bold"), bg="white",
+                 fg=self.colors['text_dark']).pack(pady=(200, 30))
+
+        tk.Label(signin_frame, text="Username", bg="white", font=("Segoe UI", 12)).pack(pady=(10, 0))
+        self.signin_user = tk.StringVar()
+        tk.Entry(signin_frame, textvariable=self.signin_user, font=("Segoe UI", 14), width=25).pack(pady=5)
+
+        tk.Label(signin_frame, text="Password", bg="white", font=("Segoe UI", 12)).pack(pady=(10, 0))
+        self.signin_pass = tk.StringVar()
+        tk.Entry(signin_frame, textvariable=self.signin_pass, font=("Segoe UI", 14), width=25, show="*").pack(pady=5)
+
+        tk.Button(signin_frame, text="Sign In", font=("Segoe UI", 12, "bold"), bg=self.colors['card_blue'], fg="white",
+                  command=self.handle_signin, width=20, pady=8, cursor="hand2").pack(pady=30)
+
+    def handle_signup(self):
+        user = self.signup_user.get().strip()
+        pwd = self.signup_pass.get().strip()
+        role = self.signup_role.get().strip()
+
+        if not user or not pwd:
+            messagebox.showerror("Error", "Please fill in all fields.")
+            return
+        if len(pwd) < 8:
+            messagebox.showerror("Error", "Password must be at least 8 characters long.")
+            return
+
+        if not hasattr(self.library, 'register_user'):
+            messagebox.showerror("System Error",
+                                 "Backend missing! Make sure you copied the services/library.py update from the previous message.")
+            return
+
+        success, msg = self.library.register_user(user, pwd, role)
+        if success:
+            messagebox.showinfo("Success", "Account created! You can now sign in on the right.")
+            self.signup_user.set("")
+            self.signup_pass.set("")
+        else:
+            messagebox.showerror("Error", msg)
+
+    def handle_signin(self):
+        user = self.signin_user.get().strip()
+        pwd = self.signin_pass.get().strip()
+
+        if not hasattr(self.library, 'authenticate_user'):
+            messagebox.showerror("System Error",
+                                 "Backend missing! Make sure you copied the services/library.py update from the previous message.")
+            return
+
+        success, role = self.library.authenticate_user(user, pwd)
+        if success:
+            self.current_user = user
+            self.current_role = role
+            self.login_container.destroy()  # DESTROY THE LOGIN SCREEN
+            self.launch_main_app()  # BOOT THE DASHBOARD
+        else:
+            messagebox.showerror("Error", "Invalid username or password.")
+
+    # ==========================================
+    # MAIN APPLICATION (RUNS AFTER LOGIN)
+    # ==========================================
+    def launch_main_app(self):
+        self._init_vars()
+        self.init_sample_data()
+        self._build_layout()
+        self._build_screens()
+
+        # Admins see Dashboard, Members see Books
+        if self.current_role == 'admin':
+            self._show_screen("home")
+        else:
+            self._show_screen("view")
+
+        self.refresh_views()
 
     def _init_vars(self):
         self.book_type_var = tk.StringVar(value="Biology")
@@ -122,15 +233,18 @@ class LibraryApp:
                               bg=self.colors['sidebar'])
         logo_label.pack(padx=20)
 
-        nav_items = [
-            ("📊 Dashboard", True),
-            ("📖 Books", False),
-            ("👥 Members", False),
-            ("🔄 Transactions", False),
-            ("📋 Reports", False),
-            ("⚙️ Settings", False),
-            ("🔍 Search", False)
-        ]
+        # 🚨 ROLE-BASED ACCESS CONTROL FOR NAVIGATION
+        if self.current_role == 'admin':
+            nav_items = [
+                ("📊 Dashboard", True), ("📖 Books", False), ("👥 Members", False),
+                ("🔄 Transactions", False), ("📋 Reports", False), ("⚙️ Settings", False),
+                ("🔍 Search", False)
+            ]
+        else:
+            # Hide Dashboard, Members, Settings, and Search from regular members
+            nav_items = [
+                ("📖 Books", True), ("🔄 Transactions", False), ("📋 Reports", False)
+            ]
 
         for item, is_active in nav_items:
             bg_color = '#2563eb' if is_active else self.colors['sidebar']
@@ -140,23 +254,25 @@ class LibraryApp:
                                    command=lambda x=item: self.nav_click(x))
             nav_button.pack(fill='x', padx=10, pady=2)
 
-        quick_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
-        quick_frame.pack(fill='x', pady=20)
+        # 🚨 Hide Quick Actions if the user is not an Admin
+        if self.current_role == 'admin':
+            quick_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
+            quick_frame.pack(fill='x', pady=20)
 
-        tk.Label(quick_frame, text="QUICK ACTIONS", font=('Arial', 10, 'bold'), fg='#94a3b8',
-                 bg=self.colors['sidebar']).pack(padx=20, pady=(0, 10))
+            tk.Label(quick_frame, text="QUICK ACTIONS", font=('Arial', 10, 'bold'), fg='#94a3b8',
+                     bg=self.colors['sidebar']).pack(padx=20, pady=(0, 10))
 
-        quick_actions = [
-            ("➕ Add Book", self.colors['card_green']),
-            ("👤 Add Member", self.colors['card_blue']),
-            ("📊 Generate Report", self.colors['card_orange'])
-        ]
+            quick_actions = [
+                ("➕ Add Book", self.colors['card_green']),
+                ("👤 Add Member", self.colors['card_blue']),
+                ("📊 Generate Report", self.colors['card_orange'])
+            ]
 
-        for action, color in quick_actions:
-            btn = tk.Button(self.sidebar, text=action, font=('Arial', 10),
-                            bg=color, fg='white', bd=0, pady=8,
-                            cursor='hand2', command=lambda x=action: self.quick_action(x))
-            btn.pack(fill='x', padx=20, pady=2)
+            for action, color in quick_actions:
+                btn = tk.Button(self.sidebar, text=action, font=('Arial', 10),
+                                bg=color, fg='white', bd=0, pady=8,
+                                cursor='hand2', command=lambda x=action: self.quick_action(x))
+                btn.pack(fill='x', padx=20, pady=2)
 
         bottom_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
         bottom_frame.pack(side='bottom', fill='x', pady=20)
@@ -180,7 +296,6 @@ class LibraryApp:
         elif "Settings" in item:
             self._show_screen("settings")
         elif "Search" in item:
-            # Wire up the Search button to trigger the Virtual Screenshot Scanner
             self.trigger_screen_scanner()
         else:
             messagebox.showinfo("Navigation", f"Module '{item}' is under construction.")
@@ -256,9 +371,11 @@ class LibraryApp:
         user_info = tk.Frame(user_frame, bg=self.colors['white'])
         user_info.pack(side='left', padx=10)
 
-        tk.Label(user_info, text="Hi, Librarian", font=('Arial', 12, 'bold'), fg=self.colors['text_dark'],
+        # 🚨 Display the currently logged in username and their role
+        tk.Label(user_info, text=f"Hi, {self.current_user}", font=('Arial', 12, 'bold'), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w')
-        tk.Label(user_info, text="admin@library.com", font=('Arial', 9), fg=self.colors['text_light'],
+        tk.Label(user_info, text=f"Role: {self.current_role.capitalize()}", font=('Arial', 9),
+                 fg=self.colors['text_light'],
                  bg=self.colors['white']).pack(anchor='w')
 
     def _build_screens(self) -> None:
@@ -868,7 +985,7 @@ class LibraryApp:
             for t in self.transactions:
                 self.reports_tree.insert("", "end", values=(t["member"], t["book"], t["type"], t["date"], t["status"]))
 
-        if self.screens["home"].winfo_ismapped():
+        if "home" in self.screens and self.screens["home"].winfo_ismapped():
             self.render_dashboard(self.screens["home"])
 
     def add_book(self) -> None:
