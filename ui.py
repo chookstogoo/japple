@@ -3,8 +3,10 @@ from datetime import datetime
 from tkinter import messagebox
 from tkinter import ttk
 import os
+from PIL import Image, ImageTk
 
 from barcode_scanner import scan_and_fetch_book
+from virtual_barcode import generate_local_barcode, scan_screen_for_barcode
 from models.biology_book import BiologyBook
 from models.chemistry_book import ChemistryBook
 from models.engineering_book import EngineeringBook
@@ -31,7 +33,6 @@ class LibraryApp:
         self.root.geometry("1400x900")
         self.root.minsize(1100, 700)
 
-        # This intercepts the 'X' click to ensure the camera shuts down
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.library = Library("City Library")
@@ -60,7 +61,6 @@ class LibraryApp:
         self.refresh_views()
 
     def on_closing(self):
-        """Safely shut down the application and force-kill dangling camera threads"""
         self.root.destroy()
         os._exit(0)
 
@@ -180,9 +180,35 @@ class LibraryApp:
         elif "Settings" in item:
             self._show_screen("settings")
         elif "Search" in item:
-            self._show_screen("delete")
+            # Wire up the Search button to trigger the Virtual Screenshot Scanner
+            self.trigger_screen_scanner()
         else:
             messagebox.showinfo("Navigation", f"Module '{item}' is under construction.")
+
+    def trigger_screen_scanner(self):
+        """Scans the monitor and displays minimalist info if it finds a Virtual ID"""
+        self.status_var.set("Scanning screen for barcodes...")
+        self.root.update()
+
+        scanned_id = scan_screen_for_barcode()
+
+        if scanned_id:
+            book = self.library.items.get(scanned_id)
+            if book:
+                info = (f"📖 Book Identified!\n\n"
+                        f"Title: {book.title}\n"
+                        f"Author: {getattr(book, 'author', 'Unknown')}\n"
+                        f"Status: {'Borrowed' if book.is_borrowed else 'Available'}\n\n"
+                        f"(Virtual ID: {scanned_id})")
+                messagebox.showinfo("Scanner Result", info)
+                self.status_var.set(f"Successfully identified {book.title} from screen.")
+            else:
+                messagebox.showwarning("Scanner Result", f"Scanned ID '{scanned_id}' not found in the local database.")
+                self.status_var.set("Scanned unknown barcode.")
+        else:
+            messagebox.showerror("Scanner Result",
+                                 "No barcode detected on your screen. Make sure a barcode window is open and visible.")
+            self.status_var.set("Screenshot scan failed.")
 
     def quick_action(self, action):
         if "Add Book" in action:
@@ -528,7 +554,7 @@ class LibraryApp:
             ("Book Type",
              ttk.Combobox(form, textvariable=self.book_type_var, values=list(BOOK_TYPES.keys()), state="readonly",
                           width=34)),
-            ("Book ID (ISBN)", tk.Entry(form, textvariable=self.book_id_var, width=37)),
+            ("Book ID", tk.Entry(form, textvariable=self.book_id_var, width=37)),
             ("Title", tk.Entry(form, textvariable=self.book_title_var, width=37)),
             ("Year", tk.Entry(form, textvariable=self.book_year_var, width=37)),
             ("Author", tk.Entry(form, textvariable=self.book_author_var, width=37)),
@@ -540,7 +566,6 @@ class LibraryApp:
             )
             widget.grid(row=row, column=1, sticky="w", pady=7)
 
-        # Added the Camera button to the Add Book screen
         btn_frame = tk.Frame(panel, bg="white")
         btn_frame.pack(anchor="w", padx=16, pady=(10, 16))
 
@@ -573,9 +598,8 @@ class LibraryApp:
         return panel
 
     def trigger_scanner(self):
-        """Launches the OpenCV webcam and populates Tkinter fields with the result"""
         self.status_var.set("Opening webcam... hold a book's barcode to the camera.")
-        self.root.update()  # Force UI to update before opening camera
+        self.root.update()
 
         isbn, title, author = scan_and_fetch_book()
 
@@ -594,7 +618,7 @@ class LibraryApp:
         panel = self._make_panel("View Books")
 
         tree_container = tk.Frame(panel, bg="white")
-        tree_container.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+        tree_container.pack(fill="both", expand=True, padx=16, pady=(4, 10))
 
         v_scroll = ttk.Scrollbar(tree_container, orient="vertical")
         h_scroll = ttk.Scrollbar(tree_container, orient="horizontal")
@@ -619,7 +643,65 @@ class LibraryApp:
             self.books_tree.heading(key, text=headings[key])
             self.books_tree.column(key, width=widths[key], minwidth=widths[key], anchor="w")
 
+        # Added the Show Barcode Button
+        btn_frame = tk.Frame(panel, bg="white")
+        btn_frame.pack(fill="x", padx=16, pady=(0, 16))
+
+        tk.Button(
+            btn_frame,
+            text="👁️ Show Virtual Barcode for Selected Book",
+            command=self.show_selected_barcode,
+            bg=self.colors['card_indigo'],
+            fg="white",
+            relief="flat",
+            padx=14,
+            pady=8,
+            font=("Segoe UI", 10, "bold"),
+            cursor="hand2"
+        ).pack(side="left")
+
         return panel
+
+    def show_selected_barcode(self):
+        """Displays the generated Virtual Library ID as a barcode on screen"""
+        selected = self.books_tree.selection()
+        if not selected:
+            messagebox.showerror("Error", "Please click a book in the list first.")
+            return
+
+        item_values = self.books_tree.item(selected[0], "values")
+        book_id = item_values[0]
+
+        filepath = f"barcodes/{book_id}.png"
+
+        # Failsafe: Generate it if it's missing
+        if not os.path.exists(filepath):
+            try:
+                generate_local_barcode(book_id)
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not generate barcode image: {e}")
+                return
+
+        # Display popup
+        popup = tk.Toplevel(self.root)
+        popup.title(f"Access Barcode: {book_id}")
+        popup.geometry("400x250")
+        popup.configure(bg="white")
+
+        try:
+            img = Image.open(filepath)
+            # Resize for screen visibility
+            img = img.resize((350, 150), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(img)
+
+            lbl = tk.Label(popup, image=photo, bg="white")
+            lbl.image = photo  # Keep reference to prevent garbage collection
+            lbl.pack(expand=True, pady=10)
+
+            tk.Label(popup, text="Click 'Search' in the sidebar to scan this image instantly.", bg="white",
+                     font=("Segoe UI", 9)).pack(pady=(0, 10))
+        except Exception as e:
+            tk.Label(popup, text="Could not load barcode image.", bg="white").pack()
 
     def _build_delete_book_screen(self) -> tk.Frame:
         panel = self._make_panel("Delete Book")
@@ -809,9 +891,18 @@ class LibraryApp:
 
         book_class = BOOK_TYPES[self.book_type_var.get()]
         book = book_class(item_id, title, year, author, pages)
+
         if not self.library.add_item(book):
             messagebox.showerror("Error", "Book ID already exists.")
             return
+
+        # ---------------------------------------------------------
+        # NEW: Automatically generate the physical barcode when saving
+        try:
+            generate_local_barcode(item_id)
+        except Exception as e:
+            print(f"Could not generate barcode image: {e}")
+        # ---------------------------------------------------------
 
         self.book_id_var.set("")
         self.book_title_var.set("")
