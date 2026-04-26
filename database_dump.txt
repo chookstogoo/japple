@@ -4,9 +4,15 @@
 Format: (Username, Password, Role)
 ('admin', 'password123', 'admin')
 ('1', '12345678', 'member')
+('cristel', '25-02170', 'member')
+('sharina', 'nicoleee', 'admin')
 
 --- TABLE: books ---
 Format: (ID, Type, Title, Year, Author, Pages, BorrowedStatus)
+('978-1-305-58198-2', 'Chemistry', 'Chemical Principles', 2013, 'Zumdahl and Decoste', 67, 0)
+('978-1-285-85690-2', 'Engineering', 'Microsoft VISUAL BASIC 2015', 2015, 'Corinne Hoisington', 67, 0)
+('978-1-305-11641-2', 'Physics', 'Physics for Scientists and Engineers with Modern Physics', 2014, 'Raymond A. Serway, John W. Jewett, Jr.', 67, 0)
 
 --- TABLE: members ---
 Format: (ID, Name, BorrowedItemIDs)
+('1', 'cristel', '')

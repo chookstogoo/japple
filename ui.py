@@ -37,7 +37,6 @@ class LibraryApp:
 
         self.library = Library("City Library")
 
-        # Setup initial state variables
         self.status_var = tk.StringVar(value="Welcome to the Library System.")
         self.current_user = None
         self.current_role = None
@@ -57,33 +56,24 @@ class LibraryApp:
         }
         self.root.configure(bg=self.colors["main_bg"])
 
-        # 🚨 THE FIX: We stop the dashboard from loading here.
-        # We ONLY load the gatekeeper login screen on boot.
         self._build_login_screen()
 
     def on_closing(self):
         self.root.destroy()
         os._exit(0)
 
-    # ==========================================
-    # GATEKEEPER: SPLIT LOGIN & SIGNUP SCREEN
-    # ==========================================
     def _build_login_screen(self):
         self.login_container = tk.Frame(self.root, bg=self.colors["main_bg"])
         self.login_container.pack(fill="both", expand=True)
 
-        # Left Half: SIGN UP
         signup_frame = tk.Frame(self.login_container, bg="#e2e8f0")
         signup_frame.pack(side="left", fill="both", expand=True)
 
-        # Right Half: SIGN IN
         signin_frame = tk.Frame(self.login_container, bg="white")
         signin_frame.pack(side="right", fill="both", expand=True)
 
-        # --- Sign Up UI ---
         tk.Label(signup_frame, text="Create Account", font=("Segoe UI", 28, "bold"), bg="#e2e8f0",
                  fg=self.colors['text_dark']).pack(pady=(180, 30))
-
         tk.Label(signup_frame, text="Username", bg="#e2e8f0", font=("Segoe UI", 12)).pack(pady=(10, 0))
         self.signup_user = tk.StringVar()
         tk.Entry(signup_frame, textvariable=self.signup_user, font=("Segoe UI", 14), width=25).pack(pady=5)
@@ -93,17 +83,15 @@ class LibraryApp:
         tk.Entry(signup_frame, textvariable=self.signup_pass, font=("Segoe UI", 14), width=25, show="*").pack(pady=5)
 
         tk.Label(signup_frame, text="Account Role", bg="#e2e8f0", font=("Segoe UI", 12)).pack(pady=(10, 0))
-        self.signup_role = tk.StringVar(value="member")
-        ttk.Combobox(signup_frame, textvariable=self.signup_role, values=["member", "admin"], state="readonly",
+        self.signup_role = tk.StringVar(value="student")
+        ttk.Combobox(signup_frame, textvariable=self.signup_role, values=["student", "admin"], state="readonly",
                      font=("Segoe UI", 14), width=23).pack(pady=5)
 
         tk.Button(signup_frame, text="Sign Up", font=("Segoe UI", 12, "bold"), bg=self.colors['card_green'], fg="white",
                   command=self.handle_signup, width=20, pady=8, cursor="hand2").pack(pady=30)
 
-        # --- Sign In UI ---
         tk.Label(signin_frame, text="Welcome Back", font=("Segoe UI", 28, "bold"), bg="white",
                  fg=self.colors['text_dark']).pack(pady=(200, 30))
-
         tk.Label(signin_frame, text="Username", bg="white", font=("Segoe UI", 12)).pack(pady=(10, 0))
         self.signin_user = tk.StringVar()
         tk.Entry(signin_frame, textvariable=self.signin_user, font=("Segoe UI", 14), width=25).pack(pady=5)
@@ -127,11 +115,6 @@ class LibraryApp:
             messagebox.showerror("Error", "Password must be at least 8 characters long.")
             return
 
-        if not hasattr(self.library, 'register_user'):
-            messagebox.showerror("System Error",
-                                 "Backend missing! Make sure you copied the services/library.py update from the previous message.")
-            return
-
         success, msg = self.library.register_user(user, pwd, role)
         if success:
             messagebox.showinfo("Success", "Account created! You can now sign in on the right.")
@@ -144,30 +127,20 @@ class LibraryApp:
         user = self.signin_user.get().strip()
         pwd = self.signin_pass.get().strip()
 
-        if not hasattr(self.library, 'authenticate_user'):
-            messagebox.showerror("System Error",
-                                 "Backend missing! Make sure you copied the services/library.py update from the previous message.")
-            return
-
         success, role = self.library.authenticate_user(user, pwd)
         if success:
             self.current_user = user
             self.current_role = role
-            self.login_container.destroy()  # DESTROY THE LOGIN SCREEN
-            self.launch_main_app()  # BOOT THE DASHBOARD
+            self.login_container.destroy()
+            self.launch_main_app()
         else:
             messagebox.showerror("Error", "Invalid username or password.")
 
-    # ==========================================
-    # MAIN APPLICATION (RUNS AFTER LOGIN)
-    # ==========================================
     def launch_main_app(self):
         self._init_vars()
-        self.init_sample_data()
         self._build_layout()
         self._build_screens()
 
-        # Admins see Dashboard, Members see Books
         if self.current_role == 'admin':
             self._show_screen("home")
         else:
@@ -191,13 +164,9 @@ class LibraryApp:
         self.delete_id_var = tk.StringVar()
         self.request_member_var = tk.StringVar()
         self.request_book_var = tk.StringVar()
-        self.books = []
-        self.members = []
-        self.transactions = []
 
-    def init_sample_data(self):
-        self.books = []
-        self.members = []
+        self.member_return_id_var = tk.StringVar()
+        self.member_return_book_var = tk.StringVar()
         self.transactions = []
 
     def _build_layout(self) -> None:
@@ -211,16 +180,8 @@ class LibraryApp:
         self.content_frame = tk.Frame(self.main_frame, bg=self.colors['main_bg'])
         self.content_frame.pack(fill='both', expand=True)
 
-        self.status_label = tk.Label(
-            self.main_frame,
-            textvariable=self.status_var,
-            anchor="w",
-            bg="#e2e8f0",
-            fg="#0f172a",
-            padx=12,
-            pady=6,
-            font=("Segoe UI", 9),
-        )
+        self.status_label = tk.Label(self.main_frame, textvariable=self.status_var, anchor="w", bg="#e2e8f0",
+                                     fg="#0f172a", padx=12, pady=6, font=("Segoe UI", 9))
         self.status_label.pack(side="bottom", fill="x")
 
     def create_sidebar(self):
@@ -230,59 +191,53 @@ class LibraryApp:
 
         logo_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
         logo_frame.pack(fill='x', pady=20)
+        tk.Label(logo_frame, text="📚 LIBRARY MS", font=('Arial', 18, 'bold'), fg='white',
+                 bg=self.colors['sidebar']).pack(padx=20)
 
-        logo_label = tk.Label(logo_frame, text="📚 LIBRARY MS", font=('Arial', 18, 'bold'), fg='white',
-                              bg=self.colors['sidebar'])
-        logo_label.pack(padx=20)
-
-        # 🚨 ROLE-BASED ACCESS CONTROL FOR NAVIGATION
         if self.current_role == 'admin':
             nav_items = [
                 ("📊 Dashboard", True), ("📖 Books", False), ("👥 Members", False),
-                ("🔄 Transactions", False), ("📋 Reports", False), ("⚙️ Settings", False),
-                ("🔍 Search", False)
+                ("🔄 Transactions", False), ("📋 Reports", False), ("⚙️ Settings", False), ("🔍 Search", False)
             ]
         else:
-            # Hide Dashboard, Members, Settings, and Search from regular members
-            nav_items = [
-                ("📖 Books", True), ("🔄 Request Book", False), ("📋 Reports", False)  # <-- Changed here
-            ]
+            nav_items = [("📖 Books", True), ("🔄 Request / Return", False), ("📋 Reports", False)]
 
         for item, is_active in nav_items:
             bg_color = '#2563eb' if is_active else self.colors['sidebar']
-            nav_button = tk.Button(self.sidebar, text=item, font=('Arial', 11),
-                                   bg=bg_color, fg='white', bd=0, pady=15,
-                                   anchor='w', padx=20, cursor='hand2',
-                                   command=lambda x=item: self.nav_click(x))
+            nav_button = tk.Button(self.sidebar, text=item, font=('Arial', 11), bg=bg_color, fg='white', bd=0, pady=15,
+                                   anchor='w', padx=20, cursor='hand2', command=lambda x=item: self.nav_click(x))
             nav_button.pack(fill='x', padx=10, pady=2)
 
-        # 🚨 Hide Quick Actions if the user is not an Admin
         if self.current_role == 'admin':
             quick_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
             quick_frame.pack(fill='x', pady=20)
-
             tk.Label(quick_frame, text="QUICK ACTIONS", font=('Arial', 10, 'bold'), fg='#94a3b8',
                      bg=self.colors['sidebar']).pack(padx=20, pady=(0, 10))
 
-            quick_actions = [
-                ("➕ Add Book", self.colors['card_green']),
-                ("👤 Add Member", self.colors['card_blue']),
-                ("📊 Generate Report", self.colors['card_orange'])
-            ]
-
+            quick_actions = [("➕ Add Book", self.colors['card_green']), ("👤 Add Member", self.colors['card_blue']),
+                             ("📊 Generate Report", self.colors['card_orange'])]
             for action, color in quick_actions:
-                btn = tk.Button(self.sidebar, text=action, font=('Arial', 10),
-                                bg=color, fg='white', bd=0, pady=8,
-                                cursor='hand2', command=lambda x=action: self.quick_action(x))
-                btn.pack(fill='x', padx=20, pady=2)
+                tk.Button(self.sidebar, text=action, font=('Arial', 10), bg=color, fg='white', bd=0, pady=8,
+                          cursor='hand2', command=lambda x=action: self.quick_action(x)).pack(fill='x', padx=20, pady=2)
 
         bottom_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
         bottom_frame.pack(side='bottom', fill='x', pady=20)
+
+        # Log Out Button
+        tk.Button(bottom_frame, text="🚪 Log Out", font=('Arial', 10, 'bold'), fg='white', bg=self.colors['card_red'],
+                  bd=0, pady=8, cursor='hand2', command=self.logout).pack(fill='x', padx=20, pady=(0, 10))
 
         tk.Label(bottom_frame, text="Library Management System", font=('Arial', 10), fg='#94a3b8',
                  bg=self.colors['sidebar']).pack(padx=20)
         tk.Label(bottom_frame, text="© 2026 All rights reserved.", font=('Arial', 9), fg='#64748b',
                  bg=self.colors['sidebar']).pack(padx=20, pady=5)
+
+    def logout(self):
+        self.current_user = None
+        self.current_role = None
+        self.sidebar.destroy()
+        self.main_frame.destroy()
+        self._build_login_screen()
 
     def nav_click(self, item):
         if "Dashboard" in item:
@@ -293,7 +248,7 @@ class LibraryApp:
             self._show_screen("member")
         elif "Transactions" in item:
             self._show_screen("issue")
-        elif "Request Book" in item:
+        elif "Request" in item:
             self._show_screen("request")
         elif "Reports" in item:
             self._show_screen("report")
@@ -305,20 +260,15 @@ class LibraryApp:
             messagebox.showinfo("Navigation", f"Module '{item}' is under construction.")
 
     def trigger_screen_scanner(self):
-        """Scans the monitor and displays minimalist info if it finds a Virtual ID"""
         self.status_var.set("Scanning screen for barcodes...")
         self.root.update()
-
         scanned_id = scan_screen_for_barcode()
 
         if scanned_id:
             book = self.library.items.get(scanned_id)
             if book:
-                info = (f"📖 Book Identified!\n\n"
-                        f"Title: {book.title}\n"
-                        f"Author: {getattr(book, 'author', 'Unknown')}\n"
-                        f"Status: {'Borrowed' if book.is_borrowed else 'Available'}\n\n"
-                        f"(Virtual ID: {scanned_id})")
+                info = (
+                    f"📖 Book Identified!\n\nTitle: {book.title}\nAuthor: {getattr(book, 'author', 'Unknown')}\nStatus: {'Borrowed' if book.is_borrowed else 'Available'}\n\n(Virtual ID: {scanned_id})")
                 messagebox.showinfo("Scanner Result", info)
                 self.status_var.set(f"Successfully identified {book.title} from screen.")
             else:
@@ -336,8 +286,6 @@ class LibraryApp:
             self._show_screen("member")
         elif "Generate Report" in action:
             self._show_screen("report")
-        else:
-            messagebox.showinfo("Quick Action", f"Action '{action}' triggered.")
 
     def create_header(self, parent):
         header = tk.Frame(parent, bg=self.colors['white'], height=80)
@@ -347,10 +295,10 @@ class LibraryApp:
         title_frame = tk.Frame(header, bg=self.colors['white'])
         title_frame.pack(side='left', padx=20, pady=20)
 
-        tk.Label(title_frame, text="📊 Library Dashboard", font=('Arial', 24, 'bold'),
-                 fg=self.colors['text_dark'], bg=self.colors['white']).pack(anchor='w')
-        tk.Label(title_frame, text=f"Welcome back! Today is {datetime.now().strftime('%B %d, %Y')}",
-                 font=('Arial', 11), fg=self.colors['text_light'], bg=self.colors['white']).pack(anchor='w')
+        tk.Label(title_frame, text="📊 Library Dashboard", font=('Arial', 24, 'bold'), fg=self.colors['text_dark'],
+                 bg=self.colors['white']).pack(anchor='w')
+        tk.Label(title_frame, text=f"Welcome back! Today is {datetime.now().strftime('%B %d, %Y')}", font=('Arial', 11),
+                 fg=self.colors['text_light'], bg=self.colors['white']).pack(anchor='w')
 
         right_frame = tk.Frame(header, bg=self.colors['white'])
         right_frame.pack(side='right', padx=20, pady=20)
@@ -362,9 +310,10 @@ class LibraryApp:
                                 fg=self.colors['text_light'])
         search_entry.pack(side='left', padx=10, pady=8)
         search_entry.insert(0, "Search books, members...")
+        search_entry.bind('<Return>', lambda e: self.perform_search(search_entry.get()))
 
-        tk.Button(search_frame, text="🔍", font=('Arial', 12), bg='#f3f4f6', bd=0, cursor='hand2').pack(side='right',
-                                                                                                       padx=5)
+        tk.Button(search_frame, text="🔍", font=('Arial', 12), bg='#f3f4f6', bd=0, cursor='hand2',
+                  command=lambda: self.perform_search(search_entry.get())).pack(side='right', padx=5)
 
         user_frame = tk.Frame(right_frame, bg=self.colors['white'])
         user_frame.pack(side='left', padx=10)
@@ -375,12 +324,29 @@ class LibraryApp:
         user_info = tk.Frame(user_frame, bg=self.colors['white'])
         user_info.pack(side='left', padx=10)
 
-        # 🚨 Display the currently logged in username and their role
         tk.Label(user_info, text=f"Hi, {self.current_user}", font=('Arial', 12, 'bold'), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w')
         tk.Label(user_info, text=f"Role: {self.current_role.capitalize()}", font=('Arial', 9),
-                 fg=self.colors['text_light'],
-                 bg=self.colors['white']).pack(anchor='w')
+                 fg=self.colors['text_light'], bg=self.colors['white']).pack(anchor='w')
+
+    def perform_search(self, query):
+        query = query.strip().lower()
+        if not query or query == "search books, members...":
+            self.refresh_views()
+            return
+
+        self._show_screen("view")
+        for row in self.books_tree.get_children():
+            self.books_tree.delete(row)
+
+        for item in self.library.items.values():
+            if query in item.title.lower() or query in getattr(item, 'author',
+                                                               '').lower() or query in item.item_id.lower():
+                self.books_tree.insert("", "end", values=(
+                    item.item_id, item.get_item_type(), item.title, item.year,
+                    getattr(item, 'author', '-'), getattr(item, 'pages', '-'),
+                    "Issued" if item.is_borrowed else "Available",
+                ))
 
     def _build_screens(self) -> None:
         self.screens: dict[str, tk.Frame] = {
@@ -406,13 +372,8 @@ class LibraryApp:
 
     def _make_panel(self, title: str) -> tk.Frame:
         panel = tk.Frame(self.content_frame, bg="white", bd=1, relief="solid")
-        tk.Label(
-            panel,
-            text=title,
-            bg="white",
-            fg="#1b2b3a",
-            font=("Segoe UI", 16, "bold"),
-        ).pack(anchor="w", padx=16, pady=(14, 10))
+        tk.Label(panel, text=title, bg="white", fg="#1b2b3a", font=("Segoe UI", 16, "bold")).pack(anchor="w", padx=16,
+                                                                                                  pady=(14, 10))
         return panel
 
     def _build_home_screen(self) -> tk.Frame:
@@ -452,7 +413,6 @@ class LibraryApp:
 
         for col, (value, label, color, icon) in enumerate(cards_data):
             parent.grid_columnconfigure(col, weight=1)
-
             card = tk.Frame(parent, bg=color)
             card.grid(row=0, column=col, padx=10, sticky='nsew')
 
@@ -484,13 +444,9 @@ class LibraryApp:
         self.create_category_chart(right_frame)
 
     def create_transactions_list(self, parent: tk.Frame):
-        status_colors = {
-            'Completed': self.colors['card_green'],
-            'Active': self.colors['card_blue'],
-            'Pending': self.colors['card_orange'],
-            'Overdue': self.colors['card_red']
-        }
-        type_icons = {'Borrow': '📖', 'Return': '📚', 'Reserve': '🔖', 'Renew': '🔄'}
+        status_colors = {'Completed': self.colors['card_green'], 'Active': self.colors['card_blue'],
+                         'Pending': self.colors['card_orange'], 'Overdue': self.colors['card_red']}
+        type_icons = {'Borrow': '📖', 'Return': '📚', 'Request': '🔖', 'Renew': '🔄'}
 
         if not self.transactions:
             tk.Label(parent, text="No recent transactions.", bg=self.colors['white'], fg=self.colors['text_light'],
@@ -533,13 +489,10 @@ class LibraryApp:
         for book in self.library.items.values():
             ctype = book.get_item_type()
             categories[ctype] = categories.get(ctype, 0) + 1
-
-        if not categories:
-            categories = {'None': 1}
+        if not categories: categories = {'None': 1}
 
         canvas = tk.Canvas(chart_frame, bg=self.colors['white'], highlightthickness=0)
         canvas.pack(fill='both', expand=True)
-
         colors = [self.colors['card_blue'], self.colors['card_green'], self.colors['card_orange'],
                   self.colors['card_purple'], self.colors['card_red'], self.colors['card_indigo']]
 
@@ -552,7 +505,6 @@ class LibraryApp:
             y = start_y + i * spacing
             bar_width = int((count / max_value) * 150)
             color = colors[i % len(colors)]
-
             canvas.create_rectangle(80, y, 80 + bar_width, y + bar_height, fill=color, outline="")
             canvas.create_text(75, y + bar_height // 2, text=category, font=('Arial', 10), anchor='e',
                                fill=self.colors['text_dark'])
@@ -576,35 +528,33 @@ class LibraryApp:
         else:
             for i, member in enumerate(all_members[:3]):
                 color = colors[i % len(colors)]
-                name = member.name
-                member_id = member.member_id
-                activity = f"{len(member.borrowed_item_ids)} books"
-
                 member_row = tk.Frame(members_frame, bg=self.colors['white'])
                 member_row.pack(fill='x', padx=20, pady=2)
 
                 avatar = tk.Frame(member_row, bg=color, width=30, height=30)
                 avatar.pack(side='left', padx=(0, 10))
                 avatar.pack_propagate(False)
-                tk.Label(avatar, text=name[0].upper(), font=('Arial', 10, 'bold'), fg='white', bg=color).place(relx=0.5,
-                                                                                                               rely=0.5,
-                                                                                                               anchor='center')
+                tk.Label(avatar, text=member.name[0].upper(), font=('Arial', 10, 'bold'), fg='white', bg=color).place(
+                    relx=0.5, rely=0.5, anchor='center')
 
                 info_frame = tk.Frame(member_row, bg=self.colors['white'])
                 info_frame.pack(side='left', fill='x', expand=True)
-                tk.Label(info_frame, text=name, font=('Arial', 10, 'bold'), fg=self.colors['text_dark'],
+                tk.Label(info_frame, text=member.name, font=('Arial', 10, 'bold'), fg=self.colors['text_dark'],
                          bg=self.colors['white']).pack(anchor='w')
-                tk.Label(info_frame, text=f"{member_id} • {activity}", font=('Arial', 8), fg=self.colors['text_light'],
-                         bg=self.colors['white']).pack(anchor='w')
+                tk.Label(info_frame, text=f"{member.member_id} • {len(member.borrowed_item_ids)} books",
+                         font=('Arial', 8), fg=self.colors['text_light'], bg=self.colors['white']).pack(anchor='w')
 
         stats_frame = tk.Frame(parent, bg=self.colors['white'])
         stats_frame.pack(side='left', fill='both', expand=True, padx=10)
+
+        borrow_count = len([t for t in self.transactions if t['type'] in ('Borrow', 'Request')])
+        return_count = len([t for t in self.transactions if t['type'] == 'Return'])
 
         tk.Label(stats_frame, text="Library Statistics", font=('Arial', 14, 'bold'), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w', padx=20, pady=(15, 5))
         tk.Label(stats_frame, text="Monthly Circulation", font=('Arial', 10), fg=self.colors['text_light'],
                  bg=self.colors['white']).pack(anchor='w', padx=20)
-        tk.Label(stats_frame, text="0 books", font=('Arial', 18, 'bold'), fg=self.colors['text_dark'],
+        tk.Label(stats_frame, text=f"{borrow_count} books", font=('Arial', 18, 'bold'), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(anchor='w', padx=20, pady=(0, 5))
 
         stats_row = tk.Frame(stats_frame, bg=self.colors['white'])
@@ -615,56 +565,23 @@ class LibraryApp:
         month_stat.pack_propagate(False)
         tk.Label(month_stat, text="This Month", font=('Arial', 8, 'bold'), fg='white',
                  bg=self.colors['card_green']).pack(pady=(4, 0))
-        tk.Label(month_stat, text="0 books", font=('Arial', 10, 'bold'), fg='white',
+        tk.Label(month_stat, text=f"{borrow_count} books", font=('Arial', 10, 'bold'), fg='white',
                  bg=self.colors['card_green']).pack()
 
-        tk.Label(stats_row, text="Returns\n0 books", font=('Arial', 10), fg=self.colors['text_dark'],
+        tk.Label(stats_row, text=f"Returns\n{return_count} books", font=('Arial', 10), fg=self.colors['text_dark'],
                  bg=self.colors['white']).pack(side='left', padx=15)
-
-        other_stats = tk.Frame(stats_frame, bg=self.colors['white'])
-        other_stats.pack(fill='x', padx=20, pady=5)
-        tk.Label(other_stats, text="New Members This Month: 0", font=('Arial', 9), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(anchor='w')
-        tk.Label(other_stats, text="Average Books per Member: 0", font=('Arial', 9), fg=self.colors['text_dark'],
-                 bg=self.colors['white']).pack(anchor='w', pady=(2, 0))
 
     def _build_settings_screen(self) -> tk.Frame:
         panel = self._make_panel("⚙️ Settings & Database Management")
-
         wrap = tk.Frame(panel, bg="white")
         wrap.pack(anchor="w", padx=16, pady=12)
 
-        tk.Label(wrap, text="Library Catalog Controls", bg="white", font=("Segoe UI", 12, "bold")).pack(anchor="w",
-                                                                                                        pady=(0, 15))
-
-        tk.Button(
-            wrap,
-            text="➕ Add New Book",
-            command=lambda: self._show_screen("add"),
-            bg=self.colors['card_green'],
-            fg="white",
-            relief="flat",
-            padx=20,
-            pady=10,
-            font=("Segoe UI", 10, "bold"),
-            width=25,
-            cursor="hand2"
-        ).pack(anchor="w", pady=8)
-
-        tk.Button(
-            wrap,
-            text="🗑️ Delete Book",
-            command=lambda: self._show_screen("delete"),
-            bg=self.colors['card_red'],
-            fg="white",
-            relief="flat",
-            padx=20,
-            pady=10,
-            font=("Segoe UI", 10, "bold"),
-            width=25,
-            cursor="hand2"
-        ).pack(anchor="w", pady=8)
-
+        tk.Button(wrap, text="➕ Add New Book", command=lambda: self._show_screen("add"), bg=self.colors['card_green'],
+                  fg="white", relief="flat", padx=20, pady=10, font=("Segoe UI", 10, "bold"), width=25,
+                  cursor="hand2").pack(anchor="w", pady=8)
+        tk.Button(wrap, text="🗑️ Delete Book", command=lambda: self._show_screen("delete"), bg=self.colors['card_red'],
+                  fg="white", relief="flat", padx=20, pady=10, font=("Segoe UI", 10, "bold"), width=25,
+                  cursor="hand2").pack(anchor="w", pady=8)
         return panel
 
     def _build_add_book_screen(self) -> tk.Frame:
@@ -672,57 +589,34 @@ class LibraryApp:
         form = tk.Frame(panel, bg="white")
         form.pack(anchor="w", padx=16, pady=8)
 
-        fields = [
-            ("Book Type",
-             ttk.Combobox(form, textvariable=self.book_type_var, values=list(BOOK_TYPES.keys()), state="readonly",
-                          width=34)),
-            ("Book ID", tk.Entry(form, textvariable=self.book_id_var, width=37)),
-            ("Title", tk.Entry(form, textvariable=self.book_title_var, width=37)),
-            ("Year", tk.Entry(form, textvariable=self.book_year_var, width=37)),
-            ("Author", tk.Entry(form, textvariable=self.book_author_var, width=37)),
-            ("Pages", tk.Entry(form, textvariable=self.book_pages_var, width=37)),
-        ]
+        fields = [("Book Type",
+                   ttk.Combobox(form, textvariable=self.book_type_var, values=list(BOOK_TYPES.keys()), state="readonly",
+                                width=34)),
+                  ("Book ID", tk.Entry(form, textvariable=self.book_id_var, width=37)),
+                  ("Title", tk.Entry(form, textvariable=self.book_title_var, width=37)),
+                  ("Year", tk.Entry(form, textvariable=self.book_year_var, width=37)),
+                  ("Author", tk.Entry(form, textvariable=self.book_author_var, width=37)),
+                  ("Pages", tk.Entry(form, textvariable=self.book_pages_var, width=37))]
+
         for row, (label, widget) in enumerate(fields):
-            tk.Label(form, text=label, bg="white", fg="#2b2b2b", font=("Segoe UI", 10)).grid(
-                row=row, column=0, sticky="w", pady=7, padx=(0, 10)
-            )
+            tk.Label(form, text=label, bg="white", fg="#2b2b2b", font=("Segoe UI", 10)).grid(row=row, column=0,
+                                                                                             sticky="w", pady=7,
+                                                                                             padx=(0, 10))
             widget.grid(row=row, column=1, sticky="w", pady=7)
 
         btn_frame = tk.Frame(panel, bg="white")
         btn_frame.pack(anchor="w", padx=16, pady=(10, 16))
 
-        tk.Button(
-            btn_frame,
-            text="Save Book",
-            command=self.add_book,
-            bg="#1f6f43",
-            fg="white",
-            relief="flat",
-            padx=14,
-            pady=8,
-            font=("Segoe UI", 10, "bold"),
-            cursor="hand2"
-        ).pack(side="left", padx=(0, 10))
-
-        tk.Button(
-            btn_frame,
-            text="📷 Auto-Fill via Camera",
-            command=self.trigger_scanner,
-            bg=self.colors['card_blue'],
-            fg="white",
-            relief="flat",
-            padx=14,
-            pady=8,
-            font=("Segoe UI", 10, "bold"),
-            cursor="hand2"
-        ).pack(side="left")
-
+        tk.Button(btn_frame, text="Save Book", command=self.add_book, bg="#1f6f43", fg="white", relief="flat", padx=14,
+                  pady=8, font=("Segoe UI", 10, "bold"), cursor="hand2").pack(side="left", padx=(0, 10))
+        tk.Button(btn_frame, text="📷 Auto-Fill via Camera", command=self.trigger_scanner, bg=self.colors['card_blue'],
+                  fg="white", relief="flat", padx=14, pady=8, font=("Segoe UI", 10, "bold"), cursor="hand2").pack(
+            side="left")
         return panel
 
     def trigger_scanner(self):
         self.status_var.set("Opening webcam... hold a book's barcode to the camera.")
         self.root.update()
-
         isbn, title, author = scan_and_fetch_book()
 
         if isbn and title:
@@ -746,8 +640,8 @@ class LibraryApp:
         h_scroll = ttk.Scrollbar(tree_container, orient="horizontal")
 
         columns = ("id", "type", "title", "year", "author", "pages", "status")
-        self.books_tree = ttk.Treeview(tree_container, columns=columns, show="headings",
-                                       yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+        self.books_tree = ttk.Treeview(tree_container, columns=columns, show="headings", yscrollcommand=v_scroll.set,
+                                       xscrollcommand=h_scroll.set)
 
         v_scroll.config(command=self.books_tree.yview)
         h_scroll.config(command=self.books_tree.xview)
@@ -756,36 +650,38 @@ class LibraryApp:
         h_scroll.pack(side="bottom", fill="x")
         self.books_tree.pack(side="left", fill="both", expand=True)
 
-        headings = {
-            "id": "Book ID", "type": "Type", "title": "Title", "year": "Year",
-            "author": "Author", "pages": "Pages", "status": "Status",
-        }
+        headings = {"id": "Book ID", "type": "Type", "title": "Title", "year": "Year", "author": "Author",
+                    "pages": "Pages", "status": "Status"}
         widths = {"id": 90, "type": 110, "title": 230, "year": 70, "author": 170, "pages": 70, "status": 90}
         for key in columns:
             self.books_tree.heading(key, text=headings[key])
             self.books_tree.column(key, width=widths[key], minwidth=widths[key], anchor="w")
 
-        # Added the Show Barcode Button
         btn_frame = tk.Frame(panel, bg="white")
         btn_frame.pack(fill="x", padx=16, pady=(0, 16))
 
-        tk.Button(
-            btn_frame,
-            text="👁️ Show Virtual Barcode for Selected Book",
-            command=self.show_selected_barcode,
-            bg=self.colors['card_indigo'],
-            fg="white",
-            relief="flat",
-            padx=14,
-            pady=8,
-            font=("Segoe UI", 10, "bold"),
-            cursor="hand2"
-        ).pack(side="left")
+        tk.Button(btn_frame, text="👁️ Show Virtual Barcode", command=self.show_selected_barcode,
+                  bg=self.colors['card_indigo'], fg="white", relief="flat", padx=14, pady=8,
+                  font=("Segoe UI", 10, "bold"), cursor="hand2").pack(side="left")
+
+        # New Copy Book ID Button
+        tk.Button(btn_frame, text="📋 Copy Book ID", command=self.copy_selected_id, bg=self.colors['card_blue'],
+                  fg="white", relief="flat", padx=14, pady=8, font=("Segoe UI", 10, "bold"), cursor="hand2").pack(
+            side="left", padx=10)
 
         return panel
 
+    def copy_selected_id(self):
+        selected = self.books_tree.selection()
+        if not selected:
+            messagebox.showerror("Error", "Please click a book in the list first.")
+            return
+        item_id = self.books_tree.item(selected[0], "values")[0]
+        self.root.clipboard_clear()
+        self.root.clipboard_append(item_id)
+        messagebox.showinfo("Copied", f"Book ID '{item_id}' copied to clipboard!")
+
     def show_selected_barcode(self):
-        """Displays the generated Virtual Library ID as a barcode on screen"""
         selected = self.books_tree.selection()
         if not selected:
             messagebox.showerror("Error", "Please click a book in the list first.")
@@ -793,10 +689,8 @@ class LibraryApp:
 
         item_values = self.books_tree.item(selected[0], "values")
         book_id = item_values[0]
-
         filepath = f"barcodes/{book_id}.png"
 
-        # Failsafe: Generate it if it's missing
         if not os.path.exists(filepath):
             try:
                 generate_local_barcode(book_id)
@@ -804,25 +698,20 @@ class LibraryApp:
                 messagebox.showerror("Error", f"Could not generate barcode image: {e}")
                 return
 
-        # Display popup
         popup = tk.Toplevel(self.root)
         popup.title(f"Access Barcode: {book_id}")
         popup.geometry("400x250")
         popup.configure(bg="white")
 
         try:
-            img = Image.open(filepath)
-            # Resize for screen visibility
-            img = img.resize((350, 150), Image.Resampling.LANCZOS)
+            img = Image.open(filepath).resize((350, 150), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
-
             lbl = tk.Label(popup, image=photo, bg="white")
-            lbl.image = photo  # Keep reference to prevent garbage collection
+            lbl.image = photo
             lbl.pack(expand=True, pady=10)
-
             tk.Label(popup, text="Click 'Search' in the sidebar to scan this image instantly.", bg="white",
                      font=("Segoe UI", 9)).pack(pady=(0, 10))
-        except Exception as e:
+        except Exception:
             tk.Label(popup, text="Could not load barcode image.", bg="white").pack()
 
     def _build_delete_book_screen(self) -> tk.Frame:
@@ -832,17 +721,8 @@ class LibraryApp:
         tk.Label(wrap, text="Book ID", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w",
                                                                                padx=(0, 10))
         tk.Entry(wrap, textvariable=self.delete_id_var, width=35).grid(row=0, column=1, sticky="w")
-        tk.Button(
-            panel,
-            text="Delete Book",
-            command=self.delete_book,
-            bg="#a83a2a",
-            fg="white",
-            relief="flat",
-            padx=14,
-            pady=8,
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=8)
+        tk.Button(panel, text="Delete Book", command=self.delete_book, bg="#a83a2a", fg="white", relief="flat", padx=14,
+                  pady=8, font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=16, pady=8)
         return panel
 
     def _build_issue_book_screen(self) -> tk.Frame:
@@ -855,44 +735,44 @@ class LibraryApp:
         tk.Label(wrap, text="Book ID", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=6,
                                                                                padx=(0, 10))
         tk.Entry(wrap, textvariable=self.issue_book_var, width=35).grid(row=1, column=1, sticky="w", pady=6)
-        tk.Button(
-            panel,
-            text="Issue Book",
-            command=self.issue_book,
-            bg="#284d9b",
-            fg="white",
-            relief="flat",
-            padx=14,
-            pady=8,
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=8)
+        tk.Button(panel, text="Issue Book", command=self.issue_book, bg="#284d9b", fg="white", relief="flat", padx=14,
+                  pady=8, font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=16, pady=8)
         return panel
 
     def _build_request_book_screen(self) -> tk.Frame:
-        panel = self._make_panel("Request Book")
+        panel = self._make_panel("Request or Return Book")
         wrap = tk.Frame(panel, bg="white")
         wrap.pack(anchor="w", padx=16, pady=12)
 
-        tk.Label(wrap, text="Member ID", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", pady=6,
+        tk.Label(wrap, text="📝 Request a Book", font=("Segoe UI", 12, "bold"), bg="white").grid(row=0, column=0,
+                                                                                                sticky="w",
+                                                                                                pady=(0, 10))
+        tk.Label(wrap, text="Member ID", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=6,
                                                                                  padx=(0, 10))
-        tk.Entry(wrap, textvariable=self.request_member_var, width=35).grid(row=0, column=1, sticky="w", pady=6)
-
-        tk.Label(wrap, text="Book ID", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=6,
+        tk.Entry(wrap, textvariable=self.request_member_var, width=35).grid(row=1, column=1, sticky="w", pady=6)
+        tk.Label(wrap, text="Book ID", bg="white", font=("Segoe UI", 10)).grid(row=2, column=0, sticky="w", pady=6,
                                                                                padx=(0, 10))
-        tk.Entry(wrap, textvariable=self.request_book_var, width=35).grid(row=1, column=1, sticky="w", pady=6)
+        tk.Entry(wrap, textvariable=self.request_book_var, width=35).grid(row=2, column=1, sticky="w", pady=6)
+        tk.Button(wrap, text="Submit Request", command=self.request_book, bg=self.colors['card_orange'], fg="white",
+                  relief="flat", padx=14, pady=8, font=("Segoe UI", 10, "bold"), cursor="hand2").grid(row=3, column=0,
+                                                                                                      columnspan=2,
+                                                                                                      sticky="w",
+                                                                                                      pady=(8, 20))
 
-        tk.Button(
-            panel,
-            text="Submit Request",
-            command=self.request_book,
-            bg=self.colors['card_orange'],  # Orange color indicates it's pending/requested
-            fg="white",
-            relief="flat",
-            padx=14,
-            pady=8,
-            font=("Segoe UI", 10, "bold"),
-            cursor="hand2"
-        ).pack(anchor="w", padx=16, pady=8)
+        tk.Label(wrap, text="📚 Return a Book", font=("Segoe UI", 12, "bold"), bg="white").grid(row=4, column=0,
+                                                                                               sticky="w",
+                                                                                               pady=(10, 10))
+        tk.Label(wrap, text="Member ID", bg="white", font=("Segoe UI", 10)).grid(row=5, column=0, sticky="w", pady=6,
+                                                                                 padx=(0, 10))
+        tk.Entry(wrap, textvariable=self.member_return_id_var, width=35).grid(row=5, column=1, sticky="w", pady=6)
+        tk.Label(wrap, text="Book ID", bg="white", font=("Segoe UI", 10)).grid(row=6, column=0, sticky="w", pady=6,
+                                                                               padx=(0, 10))
+        tk.Entry(wrap, textvariable=self.member_return_book_var, width=35).grid(row=6, column=1, sticky="w", pady=6)
+        tk.Button(wrap, text="Submit Return", command=self.member_return_action, bg="#6a4d1f", fg="white",
+                  relief="flat", padx=14, pady=8, font=("Segoe UI", 10, "bold"), cursor="hand2").grid(row=7, column=0,
+                                                                                                      columnspan=2,
+                                                                                                      sticky="w",
+                                                                                                      pady=8)
 
         return panel
 
@@ -914,12 +794,8 @@ class LibraryApp:
             messagebox.showerror("Error", "Book not found in the catalog.")
             return
 
-        # Add to the transactions list with a "Pending" status
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.transactions.insert(0, {
-            "member": member.name, "book": book.title,
-            "type": "Request", "date": current_time, "status": "Pending"
-        })
+        self.library.log_transaction(member.name, book.title, "Request", current_time, "Pending")
 
         self.request_member_var.set("")
         self.request_book_var.set("")
@@ -927,6 +803,31 @@ class LibraryApp:
         self.status_var.set(f"Book '{book.title}' requested by {member.name}.")
         messagebox.showinfo("Success",
                             f"Your request for '{book.title}' has been submitted and is pending admin approval.")
+
+    def member_return_action(self):
+        member_id = self.member_return_id_var.get().strip()
+        book_id = self.member_return_book_var.get().strip()
+
+        if not member_id or not book_id:
+            messagebox.showerror("Error", "Enter member ID and book ID.")
+            return
+
+        ok, message = self.library.return_item(member_id, book_id)
+        if not ok:
+            messagebox.showerror("Return Failed", message)
+            return
+
+        member = self.library.members.get(member_id)
+        book = self.library.items.get(book_id)
+
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self.library.log_transaction(member.name, book.title, "Return", current_time, "Completed")
+
+        self.member_return_id_var.set("")
+        self.member_return_book_var.set("")
+        self.refresh_views()
+        self.status_var.set(message)
+        messagebox.showinfo("Success", "Your book has been successfully returned.")
 
     def _build_return_book_screen(self) -> tk.Frame:
         panel = self._make_panel("Return Book")
@@ -938,17 +839,8 @@ class LibraryApp:
         tk.Label(wrap, text="Book ID", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=6,
                                                                                padx=(0, 10))
         tk.Entry(wrap, textvariable=self.return_book_var, width=35).grid(row=1, column=1, sticky="w", pady=6)
-        tk.Button(
-            panel,
-            text="Return Book",
-            command=self.return_book,
-            bg="#6a4d1f",
-            fg="white",
-            relief="flat",
-            padx=14,
-            pady=8,
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=8)
+        tk.Button(panel, text="Return Book", command=self.return_book, bg="#6a4d1f", fg="white", relief="flat", padx=14,
+                  pady=8, font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=16, pady=8)
         return panel
 
     def _build_member_screen(self) -> tk.Frame:
@@ -959,34 +851,19 @@ class LibraryApp:
         tk.Label(form, text="Member ID", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", pady=6,
                                                                                  padx=(0, 10))
         tk.Entry(form, textvariable=self.member_id_var, width=35).grid(row=0, column=1, sticky="w", pady=6)
-
         tk.Label(form, text="Name", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=6,
                                                                             padx=(0, 10))
         tk.Entry(form, textvariable=self.member_name_var, width=35).grid(row=1, column=1, sticky="w", pady=6)
-
-        tk.Button(
-            panel,
-            text="Register",
-            command=self.register_member,
-            bg="#1f6f43",
-            fg="white",
-            relief="flat",
-            padx=14,
-            pady=8,
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=(8, 12))
+        tk.Button(panel, text="Register", command=self.register_member, bg="#1f6f43", fg="white", relief="flat",
+                  padx=14, pady=8, font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=16, pady=(8, 12))
 
         list_container = tk.Frame(panel, bg="white")
         list_container.pack(fill="both", expand=True, padx=16, pady=(4, 16))
-
         v_scroll = ttk.Scrollbar(list_container, orient="vertical")
         h_scroll = ttk.Scrollbar(list_container, orient="horizontal")
-
         self.members_listbox = tk.Listbox(list_container, yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
-
         v_scroll.config(command=self.members_listbox.yview)
         h_scroll.config(command=self.members_listbox.xview)
-
         v_scroll.pack(side="right", fill="y")
         h_scroll.pack(side="bottom", fill="x")
         self.members_listbox.pack(side="left", fill="both", expand=True)
@@ -995,7 +872,6 @@ class LibraryApp:
 
     def _build_report_screen(self) -> tk.Frame:
         panel = self._make_panel("Transaction Reports")
-
         tree_container = tk.Frame(panel, bg="white")
         tree_container.pack(fill="both", expand=True, padx=16, pady=(4, 16))
 
@@ -1003,20 +879,16 @@ class LibraryApp:
         h_scroll = ttk.Scrollbar(tree_container, orient="horizontal")
 
         columns = ("member", "book", "type", "date", "status")
-        self.reports_tree = ttk.Treeview(tree_container, columns=columns, show="headings",
-                                         yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
-
+        self.reports_tree = ttk.Treeview(tree_container, columns=columns, show="headings", yscrollcommand=v_scroll.set,
+                                         xscrollcommand=h_scroll.set)
         v_scroll.config(command=self.reports_tree.yview)
         h_scroll.config(command=self.reports_tree.xview)
-
         v_scroll.pack(side="right", fill="y")
         h_scroll.pack(side="bottom", fill="x")
         self.reports_tree.pack(side="left", fill="both", expand=True)
 
-        headings = {
-            "member": "Member Name", "book": "Book Title", "type": "Transaction Type",
-            "date": "Date & Time", "status": "Status"
-        }
+        headings = {"member": "Member Name", "book": "Book Title", "type": "Transaction Type", "date": "Date & Time",
+                    "status": "Status"}
         widths = {"member": 200, "book": 250, "type": 150, "date": 200, "status": 100}
         for key in columns:
             self.reports_tree.heading(key, text=headings[key])
@@ -1025,18 +897,17 @@ class LibraryApp:
         return panel
 
     def refresh_views(self) -> None:
+        self.transactions = self.library.get_transactions()
+
         if hasattr(self, "books_tree"):
             for row in self.books_tree.get_children():
                 self.books_tree.delete(row)
             for item in self.library.items.values():
-                self.books_tree.insert(
-                    "", "end",
-                    values=(
-                        item.item_id, item.get_item_type(), item.title, item.year,
-                        getattr(item, 'author', '-'), getattr(item, 'pages', '-'),
-                        "Issued" if item.is_borrowed else "Available",
-                    ),
-                )
+                self.books_tree.insert("", "end", values=(
+                    item.item_id, item.get_item_type(), item.title, item.year,
+                    getattr(item, 'author', '-'), getattr(item, 'pages', '-'),
+                    "Issued" if item.is_borrowed else "Available",
+                ))
 
         if hasattr(self, "members_listbox"):
             self.members_listbox.delete(0, tk.END)
@@ -1078,13 +949,10 @@ class LibraryApp:
             messagebox.showerror("Error", "Book ID already exists.")
             return
 
-        # ---------------------------------------------------------
-        # NEW: Automatically generate the physical barcode when saving
         try:
             generate_local_barcode(item_id)
         except Exception as e:
             print(f"Could not generate barcode image: {e}")
-        # ---------------------------------------------------------
 
         self.book_id_var.set("")
         self.book_title_var.set("")
@@ -1128,10 +996,7 @@ class LibraryApp:
         book = self.library.items.get(book_id)
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.transactions.insert(0, {
-            "member": member.name, "book": book.title,
-            "type": "Borrow", "date": current_time, "status": "Active"
-        })
+        self.library.log_transaction(member.name, book.title, "Borrow", current_time, "Active")
 
         self.issue_member_var.set("")
         self.issue_book_var.set("")
@@ -1155,10 +1020,7 @@ class LibraryApp:
         book = self.library.items.get(book_id)
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.transactions.insert(0, {
-            "member": member.name, "book": book.title,
-            "type": "Return", "date": current_time, "status": "Completed"
-        })
+        self.library.log_transaction(member.name, book.title, "Return", current_time, "Completed")
 
         self.return_member_var.set("")
         self.return_book_var.set("")
@@ -1187,3 +1049,7 @@ def run() -> None:
     root = tk.Tk()
     LibraryApp(root)
     root.mainloop()
+
+
+if __name__ == "__main__":
+    run()
