@@ -200,12 +200,24 @@ class LibraryApp:
         self.sidebar.pack(side='left', fill='y')
         self.sidebar.pack_propagate(False)
 
-        logo_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
-        logo_frame.pack(fill='x', pady=20)
+        # Pack Bottom Frame FIRST so it securely anchors to the bottom
+        bottom_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
+        bottom_frame.pack(side='bottom', fill='x', pady=20)
 
+        tk.Button(bottom_frame, text="🚪 Log Out", font=('Arial', 10, 'bold'), bg=self.colors['card_red'], fg='white',
+                  bd=0, pady=8, cursor='hand2', command=self.handle_logout).pack(fill='x', padx=20, pady=(0, 10))
+        tk.Label(bottom_frame, text="Library Management System", font=('Arial', 10), fg='#94a3b8',
+                 bg=self.colors['sidebar']).pack(padx=20)
+        tk.Label(bottom_frame, text="© 2026 All rights reserved.", font=('Arial', 9), fg='#64748b',
+                 bg=self.colors['sidebar']).pack(padx=20, pady=5)
+
+        # Then pack the Logo to the top
+        logo_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
+        logo_frame.pack(side='top', fill='x', pady=20)
         tk.Label(logo_frame, text="📚 LIBRARY MS", font=('Arial', 18, 'bold'), fg='white',
                  bg=self.colors['sidebar']).pack(padx=20)
 
+        # Nav items
         if self.current_role == 'admin':
             nav_items = [
                 ("📊 Dashboard", True), ("📖 Books", False), ("👥 Members", False),
@@ -220,11 +232,12 @@ class LibraryApp:
         for item, is_active in nav_items:
             bg_color = '#2563eb' if is_active else self.colors['sidebar']
             tk.Button(self.sidebar, text=item, font=('Arial', 11), bg=bg_color, fg='white', bd=0, pady=15, anchor='w',
-                      padx=20, cursor='hand2', command=lambda x=item: self.nav_click(x)).pack(fill='x', padx=10, pady=2)
+                      padx=20, cursor='hand2', command=lambda x=item: self.nav_click(x)).pack(side='top', fill='x',
+                                                                                              padx=10, pady=2)
 
         if self.current_role == 'admin':
             quick_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
-            quick_frame.pack(fill='x', pady=20)
+            quick_frame.pack(side='top', fill='x', pady=20)
             tk.Label(quick_frame, text="QUICK ACTIONS", font=('Arial', 10, 'bold'), fg='#94a3b8',
                      bg=self.colors['sidebar']).pack(padx=20, pady=(0, 10))
 
@@ -232,19 +245,8 @@ class LibraryApp:
                              ("📊 Generate Report", self.colors['card_orange'])]
             for action, color in quick_actions:
                 tk.Button(self.sidebar, text=action, font=('Arial', 10), bg=color, fg='white', bd=0, pady=8,
-                          cursor='hand2', command=lambda x=action: self.quick_action(x)).pack(fill='x', padx=20, pady=2)
-
-        bottom_frame = tk.Frame(self.sidebar, bg=self.colors['sidebar'])
-        bottom_frame.pack(side='bottom', fill='x', pady=20)
-
-        # New Log Out Button natively built-in
-        tk.Button(bottom_frame, text="🚪 Log Out", font=('Arial', 10, 'bold'), bg=self.colors['card_red'], fg='white',
-                  bd=0, pady=8, cursor='hand2', command=self.handle_logout).pack(fill='x', padx=20, pady=(0, 10))
-
-        tk.Label(bottom_frame, text="Library Management System", font=('Arial', 10), fg='#94a3b8',
-                 bg=self.colors['sidebar']).pack(padx=20)
-        tk.Label(bottom_frame, text="© 2026 All rights reserved.", font=('Arial', 9), fg='#64748b',
-                 bg=self.colors['sidebar']).pack(padx=20, pady=5)
+                          cursor='hand2', command=lambda x=action: self.quick_action(x)).pack(side='top', fill='x',
+                                                                                              padx=20, pady=2)
 
     def nav_click(self, item):
         if "Dashboard" in item:
@@ -388,18 +390,19 @@ class LibraryApp:
         for widget in parent.winfo_children():
             widget.destroy()
 
+        # Fix layout overflowing: Lock top and bottom row heights, expand middle.
         top_row = tk.Frame(parent, bg=self.colors['main_bg'])
-        top_row.pack(fill='both', expand=True, padx=20, pady=(10, 5))
-
-        mid_row = tk.Frame(parent, bg=self.colors['main_bg'])
-        mid_row.pack(fill='both', expand=True, padx=20, pady=5)
+        top_row.pack(side='top', fill='x', padx=20, pady=(10, 5))
 
         bot_row = tk.Frame(parent, bg=self.colors['main_bg'])
-        bot_row.pack(fill='both', expand=True, padx=20, pady=(5, 20))
+        bot_row.pack(side='bottom', fill='x', padx=20, pady=(5, 20))
+
+        mid_row = tk.Frame(parent, bg=self.colors['main_bg'])
+        mid_row.pack(side='top', fill='both', expand=True, padx=20, pady=5)
 
         self.create_metric_cards(top_row)
-        self.create_middle_section(mid_row)
         self.create_bottom_section(bot_row)
+        self.create_middle_section(mid_row)
 
     def create_metric_cards(self, parent: tk.Frame):
         total_books = len(self.library.items)
@@ -481,7 +484,7 @@ class LibraryApp:
                      pady=20).pack()
             return
 
-        for transaction in self.transactions[:5]:
+        for transaction in self.transactions[:4]:
             trans_row = tk.Frame(parent, bg=self.colors['white'])
             trans_row.pack(fill='x', padx=20, pady=5)
 
@@ -505,7 +508,6 @@ class LibraryApp:
             right_details = tk.Frame(trans_row, bg=self.colors['white'])
             right_details.pack(side='right')
 
-            # INJECT APPROVE AND REJECT BUTTONS FOR PENDING REQUESTS WITHOUT CHANGING LAYOUT
             if self.current_role == 'admin' and transaction['status'] == 'Pending':
                 tk.Button(right_details, text="✅", bg=self.colors['card_green'], fg='white', relief='flat',
                           font=('Arial', 8), cursor="hand2",
@@ -698,12 +700,13 @@ class LibraryApp:
             self.books_tree.heading(key, text=headings[key])
             self.books_tree.column(key, width=widths[key], minwidth=widths[key], anchor="w")
 
-        btn_frame = tk.Frame(panel, bg="white")
-        btn_frame.pack(fill="x", padx=16, pady=(0, 16))
-
-        tk.Button(btn_frame, text="👁️ Show Virtual Barcode", command=self.show_selected_barcode,
-                  bg=self.colors['card_indigo'], fg="white", relief="flat", padx=14, pady=8,
-                  font=("Segoe UI", 10, "bold"), cursor="hand2").pack(side="left")
+        # Student restriction for Virtual Barcode visibility
+        if self.current_role == 'admin':
+            btn_frame = tk.Frame(panel, bg="white")
+            btn_frame.pack(fill="x", padx=16, pady=(0, 16))
+            tk.Button(btn_frame, text="👁️ Show Virtual Barcode", command=self.show_selected_barcode,
+                      bg=self.colors['card_indigo'], fg="white", relief="flat", padx=14, pady=8,
+                      font=("Segoe UI", 10, "bold"), cursor="hand2").pack(side="left")
 
         return panel
 
@@ -728,6 +731,7 @@ class LibraryApp:
         popup.title(f"Access Barcode: {book_id}")
         popup.geometry("400x250")
         popup.configure(bg="white")
+        popup.attributes('-topmost', True)  # <--- THIS FIXES THE KICK-OUT BUG
 
         try:
             img = Image.open(filepath)
