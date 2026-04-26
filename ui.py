@@ -155,13 +155,13 @@ class LibraryApp:
                  font=("Arial", 10, "bold")).pack(anchor="w", padx=100, pady=(10, 0))
         self.signup_user = tk.StringVar()
         tk.Entry(signup_frame, textvariable=self.signup_user, font=("Arial", 12), width=30, relief="flat",
-                 highlightthickness=1, highlightbackground=self.colors['border'], padx=10, pady=8).pack(pady=5)
+                 highlightthickness=1, highlightbackground=self.colors['border']).pack(pady=5)
 
         tk.Label(signup_frame, text="Password (Min 8 chars)", bg="#e2e8f0", fg=self.colors['text_light'],
                  font=("Arial", 10, "bold")).pack(anchor="w", padx=100, pady=(10, 0))
         self.signup_pass = tk.StringVar()
         tk.Entry(signup_frame, textvariable=self.signup_pass, font=("Arial", 12), width=30, relief="flat",
-                 highlightthickness=1, highlightbackground=self.colors['border'], padx=10, pady=8, show="*").pack(
+                 highlightthickness=1, highlightbackground=self.colors['border'], show="*").pack(
             pady=5)
 
         tk.Label(signup_frame, text="Account Role", bg="#e2e8f0", fg=self.colors['text_light'],
@@ -180,13 +180,13 @@ class LibraryApp:
                  font=("Arial", 10, "bold")).pack(anchor="w", padx=100, pady=(10, 0))
         self.signin_user = tk.StringVar()
         tk.Entry(signin_frame, textvariable=self.signin_user, font=("Arial", 12), width=30, relief="flat",
-                 highlightthickness=1, highlightbackground=self.colors['border'], padx=10, pady=8).pack(pady=5)
+                 highlightthickness=1, highlightbackground=self.colors['border']).pack(pady=5)
 
         tk.Label(signin_frame, text="Password", bg="white", fg=self.colors['text_light'],
                  font=("Arial", 10, "bold")).pack(anchor="w", padx=100, pady=(10, 0))
         self.signin_pass = tk.StringVar()
         tk.Entry(signin_frame, textvariable=self.signin_pass, font=("Arial", 12), width=30, relief="flat",
-                 highlightthickness=1, highlightbackground=self.colors['border'], padx=10, pady=8, show="*").pack(
+                 highlightthickness=1, highlightbackground=self.colors['border'], show="*").pack(
             pady=5)
 
         tk.Button(signin_frame, text="Sign In", font=("Arial", 11, "bold"), bg=self.colors['card_blue'], fg="white",
@@ -1038,7 +1038,7 @@ class LibraryApp:
 
         # Hack to apply padding/colors to tk.Entry within mapping
         entry_style = {"relief": "flat", "highlightthickness": 1, "highlightbackground": self.colors['border'],
-                       "padx": 10, "pady": 7, "font": ("Arial", 10)}
+                       "font": ("Arial", 10)}
 
         for row, (label, widget) in enumerate(fields):
             tk.Label(form, text=label, bg="white", fg=self.colors['text_dark'], font=("Arial", 9, "bold")).grid(row=row,
@@ -1131,7 +1131,7 @@ class LibraryApp:
         tk.Label(wrap, text="Enter Book ID to delete", bg="white", fg=self.colors['text_dark'],
                  font=("Arial", 9, "bold")).pack(anchor='w', pady=(0, 5))
         entry_id = tk.Entry(wrap, width=35, relief="flat", highlightthickness=1,
-                            highlightbackground=self.colors['border'], padx=10, pady=7)
+                            highlightbackground=self.colors['border'])
         entry_id.pack(anchor='w', pady=5)
 
         tk.Button(wrap, text="🗑️ Delete Book", command=lambda: self.delete_book(entry_id), bg=self.colors['card_red'],
@@ -1172,8 +1172,7 @@ class LibraryApp:
         entry_frame = tk.Frame(form, bg="white")
         entry_frame.pack(fill='x', padx=24, pady=(0, 20))
 
-        entry_style = {"relief": "flat", "highlightthickness": 1, "highlightbackground": self.colors['border'],
-                       "padx": 10, "pady": 7}
+        entry_style = {"relief": "flat", "highlightthickness": 1, "highlightbackground": self.colors['border']}
 
         tk.Label(entry_frame, text="Member ID", bg="white", font=("Arial", 9, "bold")).grid(row=0, column=0, sticky='w')
         self.new_mem_id = tk.Entry(entry_frame, width=30, **entry_style)
