@@ -1,4 +1,5 @@
 import sqlite3
+import datetime
 from models.library_item import LibraryItem
 from models.member import Member
 
@@ -46,8 +47,19 @@ class Library:
         if not self.cursor.fetchone():
             self.cursor.execute("INSERT INTO users VALUES ('admin', 'password123', 'admin')")
 
-        # Migrate old "member" roles to "student"
         self.cursor.execute("UPDATE users SET role='student' WHERE role='member'")
+
+        # Load Original Sample Books automatically if database is empty
+        self.cursor.execute("SELECT COUNT(*) FROM books")
+        if self.cursor.fetchone()[0] == 0:
+            samples = [
+                ("BIO-001", "Biology", "Campbell Biology", 2020, "Lisa A. Urry", 1488, 0),
+                ("PHY-001", "Physics", "Fundamentals of Physics", 2018, "David Halliday", 1200, 0),
+                ("MTH-001", "Mathematics", "Calculus Early Transcendentals", 2015, "James Stewart", 1392, 0),
+                ("HIS-001", "History", "A People's History", 2003, "Howard Zinn", 768, 0)
+            ]
+            self.cursor.executemany("INSERT INTO books VALUES (?, ?, ?, ?, ?, ?, ?)", samples)
+
         self.conn.commit()
 
     def _load_data(self):
@@ -70,8 +82,10 @@ class Library:
 
     def get_transactions(self):
         transactions = []
-        for row in self.cursor.execute("SELECT member, book, type, date, status FROM transactions ORDER BY id DESC"):
-            transactions.append({"member": row[0], "book": row[1], "type": row[2], "date": row[3], "status": row[4]})
+        for row in self.cursor.execute(
+                "SELECT id, member, book, type, date, status FROM transactions ORDER BY id DESC"):
+            transactions.append(
+                {"id": row[0], "member": row[1], "book": row[2], "type": row[3], "date": row[4], "status": row[5]})
         return transactions
 
     def log_transaction(self, member, book, t_type, date, status):
@@ -79,9 +93,28 @@ class Library:
                             (member, book, t_type, date, status))
         self.conn.commit()
 
+    def admin_approve_request(self, t_id):
+        self.cursor.execute("SELECT member, book FROM transactions WHERE id=?", (t_id,))
+        row = self.cursor.fetchone()
+        if not row: return False, "Transaction not found."
+        m_name, b_title = row
+
+        m_id = next((m.member_id for m in self.members.values() if m.name == m_name), None)
+        b_id = next((b.item_id for b in self.items.values() if b.title == b_title), None)
+        if not m_id or not b_id: return False, "Could not map member or book."
+
+        success, msg = self.borrow_item(m_id, b_id, from_request_id=t_id)
+        if success:
+            return True, "Request approved & Book issued."
+        return False, msg
+
+    def admin_reject_request(self, t_id):
+        self.cursor.execute("UPDATE transactions SET status='Rejected' WHERE id=?", (t_id,))
+        self.conn.commit()
+        return True
+
     def register_user(self, username, password, role) -> tuple[bool, str]:
-        if username in self.users:
-            return False, "Username already exists."
+        if username in self.users: return False, "Username already exists."
         self.cursor.execute("INSERT INTO users VALUES (?, ?, ?)", (username, password, role))
         self.conn.commit()
         self.users[username] = {"password": password, "role": role}
@@ -109,7 +142,7 @@ class Library:
         self.members[member.member_id] = member
         return True
 
-    def borrow_item(self, member_id: str, item_id: str) -> tuple[bool, str]:
+    def borrow_item(self, member_id: str, item_id: str, from_request_id=None) -> tuple[bool, str]:
         member = self.members.get(member_id)
         item = self.items.get(item_id)
         if member is None: return False, "Member not found."
@@ -120,6 +153,14 @@ class Library:
         self.cursor.execute("UPDATE books SET is_borrowed = 1 WHERE item_id = ?", (item_id,))
         borrowed_str = ",".join(member.borrowed_item_ids)
         self.cursor.execute("UPDATE members SET borrowed_ids = ? WHERE member_id = ?", (borrowed_str, member_id))
+
+        if from_request_id:
+            self.cursor.execute("UPDATE transactions SET status='Active', type='Borrow' WHERE id=?", (from_request_id,))
+        else:
+            date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.cursor.execute("INSERT INTO transactions (member, book, type, date, status) VALUES (?, ?, ?, ?, ?)",
+                                (member.name, item.title, "Borrow", date, "Active"))
+
         self.conn.commit()
         return True, f"{member.name} borrowed '{item.title}'."
 
@@ -134,6 +175,13 @@ class Library:
         self.cursor.execute("UPDATE books SET is_borrowed = 0 WHERE item_id = ?", (item_id,))
         borrowed_str = ",".join(member.borrowed_item_ids)
         self.cursor.execute("UPDATE members SET borrowed_ids = ? WHERE member_id = ?", (borrowed_str, member_id))
+
+        date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self.cursor.execute("INSERT INTO transactions (member, book, type, date, status) VALUES (?, ?, ?, ?, ?)",
+                            (member.name, item.title, "Return", date, "Done"))
+        self.cursor.execute("UPDATE transactions SET status='Done' WHERE member=? AND book=? AND status='Active'",
+                            (member.name, item.title))
+
         self.conn.commit()
         return True, f"{member.name} returned '{item.title}'."
 
